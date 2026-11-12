@@ -1,0 +1,3880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>四季物语 · 风与粒子</title>
+<style>
+/* ============================================================
+   四季物语 · 风与粒子
+   ============================================================ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --glass: rgba(255, 255, 255, 0.07);
+  --glass-hi: rgba(255, 255, 255, 0.13);
+  --stroke: rgba(255, 255, 255, 0.14);
+  --text: rgba(255, 255, 255, 0.92);
+  --text-dim: rgba(255, 255, 255, 0.5);
+  --accent: #e0a55c;
+  --radius: 18px;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #120e0a;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+               "Microsoft YaHei", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  display: block;
+  cursor: none;
+  touch-action: none;
+  transition: filter 0.6s ease;
+}
+
+/* ============================================================
+   顶部标题
+   ============================================================ */
+.hud {
+  position: fixed;
+  top: 38px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hud h1 {
+  font-size: clamp(20px, 3vw, 34px);
+  font-weight: 300;
+  letter-spacing: 0.46em;
+  text-indent: 0.46em;
+  color: var(--text);
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.5);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.hud p {
+  margin-top: 13px;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-indent: 0.2em;
+  color: var(--text-dim);
+  transition: opacity 0.5s ease;
+}
+
+.hud.faded h1 { opacity: 0.15; }
+.hud.faded p   { opacity: 0; }
+.hud.switching h1 { opacity: 0; transform: translateY(-8px); }
+.hud.switching p  { opacity: 0; }
+
+/* ============================================================
+   FPS / 统计
+   ============================================================ */
+.stats {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 15px;
+  border-radius: 12px;
+  background: var(--glass);
+  border: 1px solid var(--stroke);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  z-index: 15;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.55;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.stats:hover { opacity: 1; }
+
+.stat { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+.stat span { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.stat em { font-size: 9px; font-style: normal; letter-spacing: 0.1em; color: var(--text-dim); }
+.stat-sep { width: 1px; height: 20px; background: var(--stroke); }
+
+/* ============================================================
+   面板开合按钮
+   ============================================================ */
+.panel-toggle {
+  position: fixed;
+  top: 22px;
+  right: 22px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--glass);
+  border: 1px solid var(--stroke);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  color: var(--text);
+  cursor: pointer;
+  z-index: 40;
+  transition: background 0.25s, transform 0.2s, border-color 0.25s;
+}
+.panel-toggle:hover { background: var(--glass-hi); border-color: rgba(255,255,255,0.28); }
+.panel-toggle:active { transform: scale(0.93); }
+.panel-toggle svg { transition: transform 0.4s cubic-bezier(0.34,1.4,0.64,1); }
+.panel-toggle.active svg { transform: rotate(90deg); }
+
+/* ============================================================
+   控制面板
+   ============================================================ */
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 320px;
+  z-index: 35;
+  transform: translateX(100%);
+  transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.panel.open { transform: translateX(0); }
+
+.panel-inner {
+  margin: 74px 16px 22px;
+  padding: 20px 18px;
+  border-radius: var(--radius);
+  background: rgba(16, 13, 10, 0.55);
+  border: 1px solid var(--stroke);
+  backdrop-filter: blur(26px) saturate(1.5);
+  -webkit-backdrop-filter: blur(26px) saturate(1.5);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.18) transparent;
+}
+.panel-inner::-webkit-scrollbar { width: 5px; }
+.panel-inner::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.16);
+  border-radius: 3px;
+}
+
+.group { margin-bottom: 20px; }
+.group:last-of-type { margin-bottom: 14px; }
+
+.group-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 11px;
+}
+
+.group-head .dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  transition: background 0.5s, box-shadow 0.5s;
+}
+
+/* ---- 季节按钮 ---- */
+.seasons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.season-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 10px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.28s ease;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.season-btn i {
+  font-style: normal;
+  font-size: 14px;
+  line-height: 1;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  flex-shrink: 0;
+}
+
+.season-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.season-btn.active {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.season-btn.active i { transform: scale(1.18) rotate(-6deg); }
+
+/* ---- 行：标签 + 数值 ---- */
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.row label {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.78);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.row output {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  transition: color 0.5s;
+  letter-spacing: 0.02em;
+}
+
+/* ---- 滑块 ---- */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.13);
+  outline: none;
+  cursor: pointer;
+  display: block;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12), 0 2px 8px rgba(0, 0, 0, 0.4);
+  cursor: grab;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.16), 0 3px 12px rgba(0, 0, 0, 0.45);
+}
+
+.slider:active::-webkit-slider-thumb { cursor: grabbing; transform: scale(1.05); }
+
+.slider::-moz-range-thumb {
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.12);
+  cursor: grab;
+}
+
+.slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.13);
+}
+
+.ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.08em;
+}
+
+/* ---- 背景色块 ---- */
+.bgs {
+  display: flex;
+  gap: 8px;
+}
+
+.bg-dot {
+  flex: 1;
+  height: 30px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: linear-gradient(135deg, var(--c1), var(--c2));
+  cursor: pointer;
+  position: relative;
+  transition: all 0.28s ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.14);
+}
+
+.bg-dot:hover { transform: translateY(-2px); }
+
+.bg-dot.active {
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.14), 0 4px 14px rgba(0,0,0,0.4);
+}
+
+.bg-dot.active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  border: 4px solid rgba(0, 0, 0, 0.18);
+}
+
+/* ---- 开关 ---- */
+.switches {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.switch input { position: absolute; opacity: 0; pointer-events: none; }
+
+.switch .track {
+  position: relative;
+  width: 34px;
+  height: 19px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.13);
+  transition: background 0.3s ease;
+  flex-shrink: 0;
+}
+
+.switch .thumb {
+  position: absolute;
+  top: 2.5px;
+  left: 2.5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
+  transition: transform 0.3s cubic-bezier(0.34, 1.5, 0.64, 1), background 0.3s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.28);
+}
+
+.switch input:checked + .track { background: rgba(224, 165, 92, 0.62); }
+.switch input:checked + .track .thumb { transform: translateX(15px); background: #fff; }
+
+.switch-label {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.78);
+  transition: color 0.25s;
+}
+.switch:hover .switch-label { color: #fff; }
+
+/* ---- 左侧游戏任务栏 ---- */
+.game-dock {
+  position: fixed;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 208px;
+  padding: 14px 12px 12px;
+  border-radius: 18px;
+  background: rgba(16, 13, 10, 0.5);
+  border: 1px solid var(--stroke);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  z-index: 36;
+  transition: opacity 0.32s ease, transform 0.42s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.dock-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 4px 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dock-title {
+  font-size: 10.5px;
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.dock-sub {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.26);
+}
+
+.games {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.game-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text-dim);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.26s ease;
+  text-align: left;
+  overflow: hidden;
+}
+
+/* 左侧高亮条 */
+.game-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 2.5px;
+  height: 62%;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+  transition: transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
+  box-shadow: 0 0 10px var(--accent);
+}
+
+.game-btn:hover {
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateX(3px);
+}
+
+.game-btn:hover::before { transform: translateY(-50%) scaleY(1); }
+
+.game-btn:active { transform: translateX(3px) scale(0.985); }
+
+.game-btn .g-icon {
+  font-size: 17px;
+  line-height: 1;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.09);
+  flex-shrink: 0;
+  transition: transform 0.35s cubic-bezier(0.34, 1.5, 0.64, 1), background 0.25s;
+}
+
+.game-btn:hover .g-icon {
+  transform: scale(1.12) rotate(-6deg);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.game-btn .g-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.game-btn .g-body b {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  transition: color 0.25s;
+  letter-spacing: 0.02em;
+}
+
+.game-btn:hover .g-body b { color: #fff; }
+
+.game-btn .g-body em {
+  font-size: 9px;
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.32);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-btn .g-best {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+/* ---- 重置 ---- */
+.reset-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px;
+  border-radius: 11px;
+  border: 1px solid var(--stroke);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 12.5px;
+  font-family: inherit;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  margin-top: 4px;
+}
+
+.reset-btn:hover {
+  background: rgba(255, 255, 255, 0.13);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.26);
+}
+
+.reset-btn:active { transform: scale(0.98); }
+
+.reset-btn svg { transition: transform 0.6s cubic-bezier(0.34, 1.2, 0.64, 1); }
+.reset-btn:hover svg { transform: rotate(-180deg); }
+
+.hint {
+  margin-top: 14px;
+  font-size: 9.5px;
+  line-height: 1.7;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.26);
+  letter-spacing: 0.05em;
+}
+
+/* ============================================================
+   光标 & 涟漪
+   ============================================================ */
+.cursor {
+  position: fixed;
+  top: 0; left: 0;
+  width: 1px; height: 1px;
+  z-index: 60;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.cursor-ring {
+  position: absolute;
+  top: -17px; left: -17px;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  transition: width 0.2s ease, height 0.2s ease, top 0.2s ease, left 0.2s ease,
+              opacity 0.25s ease, border-color 0.2s;
+  mix-blend-mode: screen;
+}
+
+.cursor-ring::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 3px; height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.cursor.hot .cursor-ring {
+  width: 52px; height: 52px;
+  top: -26px; left: -26px;
+  border-color: rgba(255, 255, 255, 0.85);
+}
+
+.cursor.blast .cursor-ring {
+  width: 76px; height: 76px;
+  top: -38px; left: -38px;
+  border-color: rgba(255, 255, 255, 0.95);
+}
+
+.ripples {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 55;
+}
+
+.ripple {
+  position: fixed;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  transform: translate(-50%, -50%) scale(0.2);
+  animation: rippleOut 0.62s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes rippleOut {
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+    border-width: 0.5px;
+  }
+}
+
+/* ============================================================
+   游戏 HUD
+   ============================================================ */
+.game-hud {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 18px 26px 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  z-index: 25;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-12px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.game-hud.show { opacity: 1; transform: translateY(0); }
+
+.gh-left, .gh-right {
+  min-width: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gh-right { align-items: flex-end; }
+
+.gh-name {
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.gh-score {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gh-score span {
+  font-size: 30px;
+  font-weight: 300;
+  line-height: 1.1;
+  color: #fff;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.4);
+}
+
+.gh-score em {
+  font-size: 10px;
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.gh-mid {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding-top: 6px;
+}
+
+.gh-combo {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.22s, transform 0.32s cubic-bezier(0.34, 1.6, 0.64, 1);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.gh-combo.show { opacity: 1; transform: scale(1); }
+.gh-combo.pop { animation: comboPop 0.32s cubic-bezier(0.34, 1.7, 0.64, 1); }
+
+@keyframes comboPop {
+  0% { transform: scale(1.32); }
+  100% { transform: scale(1); }
+}
+
+.gh-timer {
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1.1;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.4);
+  transition: color 0.3s;
+}
+
+.gh-timer.urgent { color: #ff8a6e; animation: urgentPulse 0.8s ease-in-out infinite; }
+
+@keyframes urgentPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.gh-goal {
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.38);
+  text-align: right;
+}
+
+.gh-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.gh-bar i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform 0.1s linear, background 0.3s;
+  box-shadow: 0 0 10px var(--accent);
+}
+
+/* ============================================================
+   游戏开始 / 结束卡
+   ============================================================ */
+.game-card {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 70;
+  background: rgba(8, 6, 4, 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.32s ease, visibility 0.32s;
+  padding: 20px;
+}
+
+.game-card.show { opacity: 1; visibility: visible; }
+
+.gc-inner {
+  width: min(400px, 100%);
+  padding: 30px 28px 24px;
+  border-radius: 22px;
+  background: rgba(22, 17, 12, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  text-align: center;
+  transform: scale(0.94) translateY(10px);
+  transition: transform 0.38s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.game-card.show .gc-inner { transform: scale(1) translateY(0); }
+
+.gc-icon {
+  font-size: 38px;
+  line-height: 1;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.4));
+}
+
+.gc-inner h2 {
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  color: #fff;
+  margin-bottom: 9px;
+}
+
+.gc-desc {
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 16px;
+}
+
+.gc-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 16px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+  text-align: left;
+}
+
+.gc-rules div {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  gap: 8px;
+}
+
+.gc-rules div b {
+  color: var(--accent);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.gc-best {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.08em;
+  margin-bottom: 18px;
+  min-height: 15px;
+}
+
+.gc-best strong {
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.gc-actions {
+  display: flex;
+  gap: 9px;
+}
+
+.gc-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  font-family: inherit;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.24s ease;
+}
+
+.gc-btn:hover {
+  background: rgba(255, 255, 255, 0.13);
+  color: #fff;
+}
+
+.gc-btn:active { transform: scale(0.975); }
+
+.gc-btn.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: #1a1208;
+  font-weight: 600;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.3);
+}
+
+.gc-btn.primary:hover {
+  filter: brightness(1.12);
+  color: #1a1208;
+}
+
+.gc-tip {
+  margin-top: 13px;
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.28);
+  letter-spacing: 0.12em;
+}
+
+/* ============================================================
+   游戏进行中：收窄面板、弱化 HUD
+   ============================================================ */
+body.playing .panel { transform: translateX(100%); }
+body.playing .game-dock { opacity: 0; transform: translateY(-50%) translateX(-120%); pointer-events: none; }
+body.playing .hud { opacity: 0; }
+body.playing .stats { opacity: 0; }
+body.playing .cursor-ring { border-color: rgba(255, 255, 255, 0.75); }
+
+/* 浅色主题下的游戏 UI 适配 */
+body.light-bg .game-hud .gh-score span,
+body.light-bg .game-hud .gh-timer { color: #2e251e; text-shadow: none; }
+body.light-bg .game-hud .gh-name,
+body.light-bg .game-hud .gh-goal { color: rgba(60, 48, 38, 0.45); }
+body.light-bg .game-hud .gh-bar { background: rgba(60, 48, 38, 0.12); }
+body.light-bg .game-card { background: rgba(240, 234, 226, 0.55); }
+body.light-bg .gc-inner {
+  background: rgba(252, 249, 244, 0.95);
+  border-color: rgba(90, 70, 50, 0.16);
+}
+body.light-bg .gc-inner h2 { color: #2e251e; }
+body.light-bg .gc-desc { color: rgba(60, 48, 38, 0.6); }
+body.light-bg .gc-rules { background: rgba(60, 48, 38, 0.05); }
+body.light-bg .gc-rules div { color: rgba(60, 48, 38, 0.65); }
+body.light-bg .gc-best { color: rgba(60, 48, 38, 0.42); }
+body.light-bg .gc-btn {
+  background: rgba(60, 48, 38, 0.06);
+  border-color: rgba(60, 48, 38, 0.15);
+  color: rgba(50, 40, 32, 0.78);
+}
+body.light-bg .gc-btn:hover { background: rgba(60, 48, 38, 0.13); color: #2e251e; }
+body.light-bg .gc-btn.primary { background: #b8763a; color: #fff; }
+body.light-bg .gc-btn.primary:hover { color: #fff; }
+body.light-bg .gc-tip { color: rgba(60, 48, 38, 0.3); }
+body.light-bg .game-btn .g-body b { color: rgba(50, 40, 32, 0.85); }
+body.light-bg .game-btn .g-body em { color: rgba(60, 48, 38, 0.4); }
+body.light-bg .game-btn { background: rgba(60, 48, 38, 0.055); border-color: rgba(60,48,38,0.1); }
+body.light-bg .game-btn:hover { background: rgba(60, 48, 38, 0.11); border-color: rgba(60,48,38,0.2); }
+body.light-bg .game-btn:hover .g-body b { color: #2e251e; }
+body.light-bg .game-btn .g-icon { background: rgba(60, 48, 38, 0.08); }
+body.light-bg .game-dock {
+  background: rgba(250, 246, 240, 0.75);
+  border-color: rgba(90, 70, 50, 0.16);
+}
+body.light-bg .dock-head { border-bottom-color: rgba(90, 70, 50, 0.12); }
+body.light-bg .dock-title { color: rgba(60, 48, 38, 0.6); }
+body.light-bg .dock-sub { color: rgba(60, 48, 38, 0.32); }
+
+/* ============================================================
+   纯白背景下的可读性
+   ============================================================ */
+body.light-bg .hud h1 { color: rgba(60, 48, 38, 0.9); text-shadow: none; }
+body.light-bg .hud p  { color: rgba(60, 48, 38, 0.5); }
+body.light-bg .panel-inner {
+  background: rgba(250, 246, 240, 0.78);
+  border-color: rgba(90, 70, 50, 0.16);
+}
+body.light-bg .panel-toggle,
+body.light-bg .stats {
+  background: rgba(250, 246, 240, 0.72);
+  border-color: rgba(90, 70, 50, 0.16);
+}
+body.light-bg .panel-toggle { color: #4a3c30; }
+body.light-bg .stat span { color: #3d3128; }
+body.light-bg .stat em,
+body.light-bg .group-head,
+body.light-bg .ticks,
+body.light-bg .hint { color: rgba(60, 48, 38, 0.45); }
+body.light-bg .row label,
+body.light-bg .switch-label { color: rgba(50, 40, 32, 0.82); }
+body.light-bg .season-btn {
+  background: rgba(60, 48, 38, 0.05);
+  color: rgba(50, 40, 32, 0.62);
+}
+body.light-bg .season-btn:hover { background: rgba(60, 48, 38, 0.1); color: #2e251e; }
+body.light-bg .season-btn.active {
+  background: rgba(60, 48, 38, 0.14);
+  border-color: rgba(60, 48, 38, 0.26);
+  color: #221b15;
+}
+body.light-bg .slider { background: rgba(60, 48, 38, 0.16); }
+body.light-bg .slider::-webkit-slider-thumb { background: #5c4a3a; box-shadow: 0 0 0 3px rgba(92,74,58,0.14); }
+body.light-bg .slider::-moz-range-thumb { background: #5c4a3a; }
+body.light-bg .switch .track { background: rgba(60, 48, 38, 0.18); }
+body.light-bg .switch input:checked + .track { background: rgba(180, 120, 60, 0.7); }
+body.light-bg .switch .thumb { background: rgba(255,255,255,0.95); }
+body.light-bg .reset-btn {
+  background: rgba(60, 48, 38, 0.06);
+  border-color: rgba(60, 48, 38, 0.16);
+  color: rgba(50, 40, 32, 0.78);
+}
+body.light-bg .reset-btn:hover { background: rgba(60, 48, 38, 0.13); color: #2e251e; }
+body.light-bg .cursor-ring { border-color: rgba(60, 48, 38, 0.5); mix-blend-mode: multiply; }
+body.light-bg .cursor-ring::after { background: rgba(60, 48, 38, 0.85); }
+body.light-bg .ripple { border-color: rgba(80, 60, 45, 0.45); }
+
+/* ============================================================
+   深色背景（黑/深空）
+   ============================================================ */
+body.dark-bg .panel-inner { background: rgba(10, 10, 12, 0.72); }
+
+/* ============================================================
+   响应式
+   ============================================================ */
+@media (max-width: 760px) {
+  .panel { width: 100%; }
+  .panel-inner { margin: 68px 12px 14px; }
+  .stats { display: none; }
+  .hud { top: 26px; }
+  .hud p { font-size: 10.5px; letter-spacing: 0.12em; }
+  .cursor { display: none; }
+  #scene { cursor: default; }
+
+  /* 左侧任务栏 → 底部横排 */
+  .game-dock {
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: 14px;
+    transform: none;
+    width: auto;
+    padding: 10px 10px 9px;
+    border-radius: 16px;
+  }
+  .game-dock .dock-head { display: none; }
+  .games {
+    flex-direction: row;
+    gap: 6px;
+  }
+  .game-btn {
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    padding: 9px 4px;
+    text-align: center;
+    align-items: center;
+  }
+  .game-btn::before { display: none; }
+  .game-btn:hover { transform: none; }
+  .game-btn .g-body { align-items: center; gap: 0; flex: none; }
+  .game-btn .g-body b { font-size: 11px; }
+  .game-btn .g-body em { display: none; }
+  .game-btn .g-best { font-size: 8.5px; }
+  .game-btn .g-icon { width: 26px; height: 26px; font-size: 15px; }
+  body.playing .game-dock {
+    transform: translateY(130%);
+  }
+}
+
+@media (max-height: 720px) {
+  .panel-inner { margin-top: 66px; padding: 16px 15px; }
+  .group { margin-bottom: 15px; }
+  .game-dock { padding: 11px 10px 10px; }
+  .game-btn { padding: 9px 10px; }
+  .game-btn .g-body em { display: none; }
+}
+
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+
+<!-- ============ 顶部标题 ============ -->
+<header class="hud" id="hud">
+  <h1 id="title">秋日落叶</h1>
+  <p id="subtitle">移动鼠标扫起落叶 · 单击炸开 · 长按喷射</p>
+</header>
+
+<!-- ============ 右下角数据 ============ -->
+<div class="stats" id="stats">
+  <div class="stat"><span id="statCount">0</span><em>粒子</em></div>
+  <div class="stat-sep"></div>
+  <div class="stat"><span id="statFps">60</span><em>FPS</em></div>
+  <div class="stat-sep"></div>
+  <div class="stat"><span id="statBlown">0</span><em>已吹散</em></div>
+</div>
+
+<!-- ============ 控制面板 ============ -->
+<button class="panel-toggle active" id="panelToggle" title="控制面板 (H)">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+    <path d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h12M20 17h0"/>
+    <circle cx="16" cy="7" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="17" r="2"/>
+  </svg>
+</button>
+
+<aside class="panel open" id="panel">
+  <div class="panel-inner">
+
+    <section class="group">
+      <div class="group-head"><span class="dot"></span>季节</div>
+      <div class="seasons" id="seasons">
+        <button class="season-btn active" data-season="autumn"><i>🍂</i><span>秋日落叶</span></button>
+        <button class="season-btn" data-season="spring"><i>🌸</i><span>春日樱花</span></button>
+        <button class="season-btn" data-season="summer"><i>🍀</i><span>夏日蒲公英</span></button>
+        <button class="season-btn" data-season="winter"><i>❄️</i><span>冬日雪花</span></button>
+      </div>
+    </section>
+
+    <section class="group">
+      <div class="group-head"><span class="dot"></span>风</div>
+
+      <div class="row">
+        <label for="windSlider">风速档位</label>
+        <output id="windOut">微风</output>
+      </div>
+      <input type="range" id="windSlider" min="0" max="100" value="38" class="slider">
+      <div class="ticks"><span>无风</span><span>微风</span><span>狂风</span></div>
+
+      <div class="row" style="margin-top:16px">
+        <label for="dirSlider">风向</label>
+        <output id="dirOut">右 →</output>
+      </div>
+      <div class="angle-wrap">
+        <input type="range" id="dirSlider" min="0" max="360" value="8" class="slider">
+      </div>
+    </section>
+
+    <section class="group">
+      <div class="group-head"><span class="dot"></span>交互</div>
+
+      <div class="row">
+        <label for="powerSlider">吹散力</label>
+        <output id="powerOut">中等</output>
+      </div>
+      <input type="range" id="powerSlider" min="0" max="100" value="45" class="slider">
+      <div class="ticks"><span>轻拂</span><span>中等</span><span>冲击波</span></div>
+
+      <div class="row" style="margin-top:16px">
+        <label for="densitySlider">粒子数量</label>
+        <output id="densityOut">680</output>
+      </div>
+      <input type="range" id="densitySlider" min="60" max="1600" value="680" step="20" class="slider">
+      <div class="ticks"><span>稀疏</span><span>适中</span><span>漫天</span></div>
+    </section>
+
+    <section class="group">
+      <div class="group-head"><span class="dot"></span>背景</div>
+      <div class="bgs" id="bgs">
+        <button class="bg-dot active" data-bg="auto"  style="--c1:#7a4a1e;--c2:#2b1c0f" title="季节默认"></button>
+        <button class="bg-dot" data-bg="black" style="--c1:#1a1a1a;--c2:#000" title="纯黑"></button>
+        <button class="bg-dot" data-bg="white" style="--c1:#ffffff;--c2:#e8e8e8" title="纯白"></button>
+        <button class="bg-dot" data-bg="night" style="--c1:#1b2340;--c2:#080b16" title="深空"></button>
+        <button class="bg-dot" data-bg="paper" style="--c1:#f3ebe0;--c2:#ded2c0" title="宣纸"></button>
+      </div>
+    </section>
+
+    <section class="group">
+      <div class="group-head"><span class="dot"></span>效果</div>
+      <div class="switches">
+        <label class="switch">
+          <input type="checkbox" id="trailToggle">
+          <span class="track"><span class="thumb"></span></span>
+          <span class="switch-label">拖尾留痕</span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="soundToggle">
+          <span class="track"><span class="thumb"></span></span>
+          <span class="switch-label">音效</span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="specialToggle" checked>
+          <span class="track"><span class="thumb"></span></span>
+          <span class="switch-label">特殊粒子</span>
+        </label>
+      </div>
+    </section>
+
+    <button class="reset-btn" id="resetBtn">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>
+      </svg>
+      重置画面
+    </button>
+
+    <p class="hint">快捷键 1-4 切换季节 · H 收起面板 · R 重置 · Esc 退出游戏</p>
+  </div>
+</aside>
+
+<!-- ============ 左侧游戏任务栏 ============ -->
+<aside class="game-dock" id="gameDock">
+  <div class="dock-head">
+    <span class="dock-title">小游戏</span>
+    <span class="dock-sub">点击开始</span>
+  </div>
+  <div class="games" id="games">
+    <button class="game-btn" data-game="catch">
+      <span class="g-icon">🧺</span>
+      <span class="g-body">
+        <b>接落叶</b>
+        <em>30 秒 · 移动到叶下接住</em>
+      </span>
+      <span class="g-best" data-best="catch">—</span>
+    </button>
+    <button class="game-btn" data-game="basket">
+      <span class="g-icon">🍁</span>
+      <span class="g-body">
+        <b>吹叶入篮</b>
+        <em>60 秒 · 把落叶吹进篮圈</em>
+      </span>
+      <span class="g-best" data-best="basket">—</span>
+    </button>
+    <button class="game-btn" data-game="combo">
+      <span class="g-icon">👆</span>
+      <span class="g-body">
+        <b>点落叶连击</b>
+        <em>30 秒 · 快速点击叠连击</em>
+      </span>
+      <span class="g-best" data-best="combo">—</span>
+    </button>
+  </div>
+</aside>
+
+<!-- ============ 游戏 HUD ============ -->
+<div class="game-hud" id="gameHud">
+  <div class="gh-left">
+    <div class="gh-name" id="ghName">接落叶</div>
+    <div class="gh-score"><span id="ghScore">0</span><em>分</em></div>
+  </div>
+  <div class="gh-mid">
+    <div class="gh-combo" id="ghCombo"></div>
+  </div>
+  <div class="gh-right">
+    <div class="gh-timer" id="ghTimer">30.0</div>
+    <div class="gh-goal" id="ghGoal">接住落叶得分</div>
+  </div>
+  <div class="gh-bar"><i id="ghBar"></i></div>
+</div>
+
+<!-- ============ 游戏开始 / 结束卡 ============ -->
+<div class="game-card" id="gameCard">
+  <div class="gc-inner">
+    <div class="gc-icon" id="gcIcon">🧺</div>
+    <h2 id="gcTitle">接落叶</h2>
+    <p class="gc-desc" id="gcDesc">移动鼠标，让篮子在落叶下方接住它们。</p>
+    <div class="gc-rules" id="gcRules"></div>
+    <div class="gc-best" id="gcBest"></div>
+    <div class="gc-actions">
+      <button class="gc-btn primary" id="gcStart">开始游戏</button>
+      <button class="gc-btn" id="gcQuit">返回</button>
+    </div>
+    <p class="gc-tip">Esc 退出</p>
+  </div>
+</div>
+
+<!-- 自定义光标 -->
+<div class="cursor" id="cursor"><span class="cursor-ring"></span></div>
+<!-- 点击涟漪 -->
+<div class="ripples" id="ripples"></div>
+
+<script>
+/* ============================================================
+   四季物语 · 风与粒子引擎
+   ============================================================ */
+(() => {
+'use strict';
+
+/* ============================================================
+   基础工具
+   ============================================================ */
+const TAU = Math.PI * 2;
+const rnd   = (a, b) => a + Math.random() * (b - a);
+const rndI  = (a, b) => Math.floor(rnd(a, b + 1));
+const pick  = a => a[(Math.random() * a.length) | 0];
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp  = (a, b, t) => a + (b - a) * t;
+const ease  = t => t * t * (3 - 2 * t);
+
+/* ============================================================
+   季节配置
+   ============================================================ */
+const SEASONS = {
+  autumn: {
+    label: '秋日落叶',
+    tip: '移动鼠标扫起落叶 · 单击炸开 · 长按喷射',
+    accent: '#e0a55c',
+    glow: 'rgba(226, 156, 74, 0.16)',
+    ambient: 'rgba(150, 90, 34, 0.13)',
+    fall: [0.30, 1.05],          // 基础下落速度范围
+    sway: [0.6, 1.6],
+    size: [11, 27],
+    colors: ['#c0562a','#d4692b','#e08b34','#b8451f','#cf7a2c',
+             '#9c4a1e','#e2a047','#a85a24','#d97b3a','#8f3f18','#c98a35','#eab35a'],
+    specialColor: ['#f5c542','#ffd96b','#e8a92c','#ffcf45'],
+    gradient: [[0,'#2b1c0f'],[0.32,'#4e3117'],[0.60,'#7c4b1f'],[0.82,'#a96e2d'],[1,'#c78d42']],
+  },
+  spring: {
+    label: '春日樱花',
+    tip: '轻轻掠过，看花雨在指尖旋转',
+    accent: '#f0a3c0',
+    glow: 'rgba(255, 186, 208, 0.2)',
+    ambient: 'rgba(190, 110, 150, 0.12)',
+    fall: [0.22, 0.82],
+    sway: [0.8, 2.0],
+    size: [7, 18],
+    colors: ['#ffd3e2','#ffbfd5','#f9a8c6','#fff0f5','#f78fb8',
+             '#ffe2ec','#f5b9d0','#ffc9dd','#fce4ee'],
+    specialColor: ['#ff9ec4','#ff8ab6','#ffb0d0'],
+    gradient: [[0,'#291726'],[0.32,'#552c40'],[0.60,'#8a4860'],[0.82,'#b8728b'],[1,'#d6a0b2']],
+  },
+  summer: {
+    label: '夏日蒲公英',
+    tip: '吹散绒球，看种子慢慢飞远',
+    accent: '#8fd6a0',
+    glow: 'rgba(168, 226, 160, 0.18)',
+    ambient: 'rgba(90, 160, 110, 0.13)',
+    fall: [0.10, 0.42],          // 蒲公英很轻，下落极慢
+    sway: [1.4, 3.2],
+    size: [8, 17],
+    colors: ['#fdfbf2','#f6f4e4','#eef4dd','#ffffff','#f2f7ea','#e8f0d8'],
+    specialColor: ['#ffffff','#fbfff0'],
+    gradient: [[0,'#0f2218'],[0.32,'#1e3d2a'],[0.60,'#3a6444'],[0.82,'#6d9a6a'],[1,'#a8c98f']],
+  },
+  winter: {
+    label: '冬日雪花',
+    tip: '卷起漫天飞雪，落满一整季',
+    accent: '#9cc8eb',
+    glow: 'rgba(150, 196, 235, 0.14)',
+    ambient: 'rgba(70, 110, 158, 0.14)',
+    fall: [0.34, 1.15],
+    sway: [0.25, 0.9],
+    size: [2.6, 7.2],
+    colors: ['#ffffff','#eaf6ff','#dceaf8','#f6fbff','#cfe2f4'],
+    specialColor: ['#ffffff','#eaf9ff'],
+    gradient: [[0,'#0b1420'],[0.32,'#182838'],[0.60,'#2b4055'],[0.82,'#48627d'],[1,'#7d9bb6']],
+  },
+};
+
+const BG_PRESETS = {
+  auto:  null,
+  black: { gradient: [[0,'#08080a'],[0.35,'#101014'],[0.65,'#181820'],[0.85,'#202028'],[1,'#2a2a34']],
+           glow: 'rgba(120,120,150,0.05)', ambient: 'rgba(80,80,110,0.05)', theme: 'dark' },
+  white: { gradient: [[0,'#ffffff'],[0.35,'#fbfbfb'],[0.65,'#f4f3f1'],[0.85,'#ecebe8'],[1,'#e2e0dd']],
+           glow: 'rgba(255,255,255,0)', ambient: 'rgba(200,195,190,0.16)', theme: 'light' },
+  night: { gradient: [[0,'#05070f'],[0.35,'#0b1024'],[0.65,'#151d3d'],[0.85,'#26305c'],[1,'#3a4677']],
+           glow: 'rgba(120, 150, 255, 0.10)', ambient: 'rgba(80, 90, 200, 0.08)', theme: 'dark' },
+  paper: { gradient: [[0,'#f6f1e8'],[0.35,'#f2ebdf'],[0.65,'#ece3d5'],[0.85,'#e4d9c8'],[1,'#d9ccb8']],
+           glow: 'rgba(255, 245, 225, 0.35)', ambient: 'rgba(200, 180, 150, 0.16)', theme: 'light' },
+};
+
+/* ============================================================
+   Canvas
+   ============================================================ */
+const canvas = document.getElementById('scene');
+const ctx = canvas.getContext('2d', { alpha: false });
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width  = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+
+/* ============================================================
+   全局状态
+   ============================================================ */
+const state = {
+  season: 'autumn',
+  wind: 38,            // 0-100 风速档位
+  windDir: 8,          // 角度 0-360（0 = 向右）
+  power: 45,           // 0-100 吹散力
+  density: 680,        // 目标粒子数
+  bg: 'auto',
+  trail: false,
+  sound: false,
+  special: true,
+  blownCount: 0,
+};
+
+let C = SEASONS.autumn;      // 当前季节配置
+let BG = null;               // 当前背景覆盖（null = 用季节默认）
+
+/* ============================================================
+   粒子池
+   ============================================================ */
+const particles = [];
+const MAX_HARD = 2200;       // 硬上限
+
+// 形状缓存：不同尺寸的叶片轮廓复用
+const leafPathCache = new Map();
+
+/**
+ * 生成枫叶形轮廓点集
+ */
+function buildLeafPath(type, size) {
+  const pts = [];
+  const lobes = type === 0 ? 5 : type === 1 ? 3 : 4;
+  const STEPS = 96;
+  for (let i = 0; i <= STEPS; i++) {
+    const a = (i / STEPS) * TAU - Math.PI / 2;
+    // 主瓣 + 细锯齿
+    const lobe  = 0.55 + 0.45 * Math.pow(Math.abs(Math.cos(a * lobes / 2)), 0.75);
+    const serr  = 1 + 0.055 * Math.sin(a * lobes * 6);
+    const r = size * lobe * serr;
+    pts.push([Math.cos(a) * r * 0.80, Math.sin(a) * r * 1.00]);
+  }
+  return pts;
+}
+
+function getLeafPath(type, size) {
+  const key = type + '_' + Math.round(size);
+  let p = leafPathCache.get(key);
+  if (!p) {
+    p = buildLeafPath(type, Math.round(size));
+    leafPathCache.set(key, p);
+  }
+  return p;
+}
+
+/**
+ * 创建粒子
+ */
+function makeParticle(opts = {}) {
+  const depth = Math.random();                 // 0 远 → 1 近
+  const isWinter = state.season === 'winter';
+  const baseSize = lerp(C.size[0], C.size[1], Math.pow(depth, 0.8));
+
+  const p = {
+    x: opts.x != null ? opts.x : rnd(-80, W + 80),
+    y: opts.y != null ? opts.y : rnd(-H * 0.9, -12),
+    depth,
+    size: baseSize,
+
+    // 速度
+    vx: 0,
+    vy: 0,
+    fx: 0,       // 外部冲量
+    fy: 0,
+
+    // 摆动
+    ph: rnd(0, TAU),
+    phSp: rnd(0.007, 0.022) * lerp(1.5, 0.7, depth),
+    amp: rnd(C.sway[0], C.sway[1]) * lerp(0.55, 1.3, depth),
+
+    // 旋转
+    ang: rnd(0, TAU),
+    spin: rnd(-0.02, 0.02) * lerp(1.4, 0.5, depth),
+    flip: rnd(0, TAU),
+    flipSp: rnd(0.006, 0.028),
+
+    // 外观
+    color: pick(C.colors),
+    shape: rndI(0, 2),
+    alpha: isWinter ? rnd(0.4, 1) : rnd(0.75, 1),
+    life: 1,
+    special: false,
+    scale: 1,          // 出现动画缩放
+
+    // 拖尾采样
+    hist: null,
+  };
+
+  p.baseY = lerp(C.fall[0], C.fall[1], Math.random()) * lerp(0.5, 1.15, depth);
+
+  if (state.season === 'autumn') p.pts = getLeafPath(p.shape, p.size);
+
+  if (opts.burst) {
+    // 爆炸初速度
+    p.vx = opts.vx; p.vy = opts.vy;
+    p.scale = 0.2;
+  }
+  return p;
+}
+
+/**
+ * 生成特殊大粒子（金色枫叶 / 大花瓣 / 六角大雪 / 绒毛球）
+ */
+function makeSpecial(opts = {}) {
+  const p = makeParticle(opts);
+  p.special = true;
+  p.depth = rnd(0.75, 1);
+  p.size *= state.season === 'winter' ? 2.6 : 1.6;
+  p.color = pick(C.specialColor);
+  p.alpha = 1;
+  p.baseY = lerp(C.fall[0], C.fall[1], 0.4) * 0.65;
+  p.spin = rnd(-0.012, 0.012);
+  if (state.season === 'autumn') p.pts = getLeafPath(p.shape, p.size);
+  if (opts.x != null) { p.x = opts.x; p.y = opts.y; }
+  return p;
+}
+
+/* ============================================================
+   播种 / 清空
+   ============================================================ */
+function seed(count) {
+  const n = Math.min(count, MAX_HARD);
+  for (let i = 0; i < n; i++) {
+    const p = makeParticle();
+    // 初始铺满屏幕
+    if (Math.random() < 0.86) p.y = rnd(-H * 0.25, H);
+    p.scale = 0;   // 淡入
+    particles.push(p);
+  }
+  // 特殊粒子
+  if (state.special) {
+    const s = Math.max(1, Math.round(n / 130));
+    for (let i = 0; i < s; i++) {
+      const sp = makeSpecial();
+      if (Math.random() < 0.7) sp.y = rnd(0, H);
+      sp.scale = 0;
+      particles.push(sp);
+    }
+  }
+}
+
+function clearAll() {
+  particles.length = 0;
+}
+
+/* ============================================================
+   指针
+   ============================================================ */
+const ptr = {
+  x: -9999, y: -9999,
+  vx: 0, vy: 0,
+  speed: 0,
+  down: false,
+  holdTime: 0,
+  lastEmit: 0,
+};
+
+/* ============================================================
+   风场 · 鼠标吹散
+   ============================================================ */
+function applyPointerWind(dt) {
+  if (ptr.speed < 0.8) return;
+
+  // 吹散力映射：0-100 → 半径 & 强度
+  const powerT = state.power / 100;
+  const R = lerp(70, 320, powerT);            // 影响半径
+  const R2 = R * R;
+  const strength = lerp(0.35, 3.6, powerT * powerT);
+  const pvx = ptr.vx, pvy = ptr.vy;
+  const force = clamp(ptr.speed / 24, 0, 1.7) * strength;
+
+  let hit = 0;
+
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    const dx = p.x - ptr.x;
+    const dy = p.y - ptr.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > R2) continue;
+
+    const d = Math.sqrt(d2) || 0.001;
+    const t = 1 - d / R;
+    const fall = t * t;
+
+    // 径向推离 + 顺向带走
+    const nx = dx / d, ny = dy / d;
+    const push = (nx * 0.55 + (pvx / 20) * 0.85) * fall * force * 13;
+    const pushY = (ny * 0.55 + (pvy / 20) * 0.85) * fall * force * 13;
+
+    p.fx += push;
+    p.fy += pushY;
+
+    // 翻飞
+    p.spin += (Math.random() - 0.5) * fall * force * 0.4;
+    p.flipSp += (Math.random() - 0.5) * fall * force * 0.16;
+
+    if (t > 0.5) hit++;
+  }
+
+  if (hit > 0) {
+    state.blownCount += hit * 0.02;
+    hud.classList.add('faded');
+  }
+  // 蒲公英被吹散后飞得更远（额外浮力）
+  return hit;
+}
+
+/* ============================================================
+   主更新
+   ============================================================ */
+let t = 0;
+let gustPhase = 0;
+
+function update(dt) {
+  t += dt;
+  gustPhase += dt;
+
+  const dtf = dt / 16.667;   // 帧率归一化因子
+
+  // —— 风场参数 ——
+  const windT = state.wind / 100;
+  // 非线性：0 完全无风，100 狂风
+  const windBase = Math.pow(windT, 1.35) * 5.6;
+
+  // 三组正弦叠加的阵风
+  const gust =
+    Math.sin(gustPhase * 0.00052) * 0.5 +
+    Math.sin(gustPhase * 0.00127 + 1.7) * 0.32 +
+    Math.sin(gustPhase * 0.0031 + 4.2) * 0.18;
+
+  const gustAmp = 0.35 + windT * 1.5;
+  const dirRad = (state.windDir - 90) * Math.PI / 180;  // 0° = 向上，转成数学角
+  // 实际：0° 表示向右
+  const ang = state.windDir * Math.PI / 180;
+  const wx = Math.cos(ang);
+  const wy = Math.sin(ang) * 0.42;   // 垂直分量压缩（风更偏水平）
+
+  const windPow = windBase + gust * gustAmp * windBase * 1.8;
+
+  // 狂风时背景轻微抖动（视觉张力）
+  const shake = windT > 0.75 ? (windT - 0.75) * 4 : 0;
+
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+
+    // 出现动画
+    if (p.scale < 1) p.scale = Math.min(1, p.scale + 0.035 * dtf);
+
+    // 摆动
+    p.ph += p.phSp * dtf;
+
+    // 蒲公英：飘得更高更飘忽，风向影响更大
+    const isSummer = state.season === 'summer';
+    const windFactor = isSummer ? 1.9 : lerp(0.35, 1.25, p.depth);
+
+    // 目标速度
+    const sway = Math.sin(p.ph) * p.amp;
+    const targetVx = wx * windPow * windFactor + sway * (isSummer ? 1.1 : 0.55);
+    const targetVy = p.baseY * (1 + windT * 1.35) + wy * windPow * windFactor * 0.5;
+
+    // 平滑趋近
+    const accel = p.special ? 0.020 : 0.030;
+    p.vx += (targetVx - p.vx) * accel * dtf;
+    p.vy += (targetVy - p.vy) * accel * dtf;
+
+    // 冲量阻尼
+    p.fx *= Math.pow(0.943, dtf);
+    p.fy *= Math.pow(0.943, dtf);
+
+    // 蒲公英：冲量衰减更慢（飞得远）
+    if (isSummer) { p.fx *= 1.006; p.fy *= 1.006; }
+
+    // 位置
+    p.x += (p.vx + p.fx) * dtf;
+    p.y += (p.vy + p.fy) * dtf;
+
+    // 旋转
+    p.ang += p.spin * dtf;
+    p.flip += p.flipSp * dtf * (1 + Math.abs(p.fx) * 0.04);
+
+    // 记录拖尾
+    if (state.trail) {
+      const sp = Math.abs(p.fx) + Math.abs(p.fy);
+      if (sp > 1.6) {
+        if (!p.hist) p.hist = [];
+        if (p.hist.length < 5) p.hist.push([p.x, p.y, p.ang, p.flip]);
+      }
+    } else if (p.hist) {
+      p.hist = null;
+    }
+
+    // 回收
+    const margin = 60 + p.size * 3;
+    if (p.y > H + margin || p.x < -margin - 220 || p.x > W + margin + 220) {
+      if (p.special) {
+        // 特殊粒子回收为普通粒子，保持数量
+        particles[i] = makeParticle();
+        particles[i].y = rnd(-140, -20);
+        particles[i].scale = 0;
+        continue;
+      }
+      const fromBottom = p.y > H;
+      p.x = fromBottom ? rnd(-60, W + 60) : rnd(-60, W * 1.1);
+      p.y = fromBottom ? rnd(-160, -20) : rnd(-60, H * 0.85);
+      p.fx = p.fy = 0;
+      p.scale = 0.2 + Math.random() * 0.5;
+      // 重新随机外观
+      const depth = Math.random();
+      p.depth = depth;
+      p.size = lerp(C.size[0], C.size[1], Math.pow(depth, 0.8));
+      p.color = pick(C.colors);
+      p.alpha = state.season === 'winter' ? rnd(0.4, 1) : rnd(0.75, 1);
+      p.baseY = lerp(C.fall[0], C.fall[1], Math.random()) * lerp(0.5, 1.15, depth);
+      if (state.season === 'autumn') p.pts = getLeafPath(p.shape, p.size);
+      p.hist = null;
+    }
+  }
+
+  // 鼠标速度衰减
+  ptr.speed *= Math.pow(0.86, dtf);
+  ptr.vx *= Math.pow(0.86, dtf);
+  ptr.vy *= Math.pow(0.86, dtf);
+
+  // 长按喷射
+  if (ptr.down) {
+    ptr.holdTime += dt;
+    if (ptr.holdTime > 260 && t - ptr.lastEmit > 55) {
+      ptr.lastEmit = t;
+      emitBurst(ptr.x, ptr.y, 3, 0.45);
+    }
+  }
+
+  // 动态维持粒子数量
+  const target = Math.min(state.density, MAX_HARD);
+  const diff = target - particles.length;
+  if (diff > 0) {
+    const add = Math.min(diff, Math.max(1, Math.ceil(diff * 0.06)));
+    for (let i = 0; i < add; i++) {
+      const p = makeParticle();
+      if (Math.random() < 0.7) p.y = rnd(-140, H);
+      p.scale = 0;
+      particles.push(p);
+    }
+  } else if (diff < -4) {
+    const rm = Math.min(-diff, Math.max(1, Math.ceil(-diff * 0.05)));
+    particles.length -= rm;
+  }
+
+  lastShake = shake;
+}
+
+let lastShake = 0;
+
+/* ============================================================
+   绘制
+   ============================================================ */
+let bgGradCache = null;
+let bgCacheKey = '';
+
+function getGradientConfig() {
+  const bg = BG_PRESETS[state.bg];
+  if (bg) return bg.gradient;
+  return C.gradient;
+}
+
+function drawBackground() {
+  const key = state.bg + state.season;
+  const stops = getGradientConfig();
+
+  if (bgCacheKey !== key) {
+    bgGradCache = ctx.createLinearGradient(0, 0, W * 0.4, H);
+    for (const [pos, col] of stops) bgGradCache.addColorStop(pos, col);
+    bgCacheKey = key;
+  }
+  ctx.fillStyle = bgGradCache;
+  ctx.fillRect(0, 0, W, H);
+
+  const bg = BG_PRESETS[state.bg];
+  const glow = bg ? bg.glow : C.glow;
+  const ambient = bg ? bg.ambient : C.ambient;
+
+  // 底部光晕
+  const gy = H * 0.74;
+  const rg = ctx.createRadialGradient(W * 0.5, gy, 0, W * 0.5, gy, Math.max(W, H) * 0.66);
+  rg.addColorStop(0, glow);
+  rg.addColorStop(0.5, ambient);
+  rg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = rg;
+  ctx.fillRect(0, 0, W, H);
+
+  // 暗角（纯白不加）
+  if (state.bg !== 'white') {
+    const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.26, W / 2, H / 2, Math.max(W, H) * 0.8);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, state.bg === 'white' ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,0.44)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+/* ---- 落叶（sprite 缓存：形状 + 渐变 + 叶脉预渲染） ---- */
+const leafSprites = new Map();
+
+function leafSprite(type, size, color) {
+  const s = Math.round(size);
+  const key = type + '_' + s + '_' + color;
+  let spr = leafSprites.get(key);
+  if (spr) return spr;
+
+  const pad = s * 1.35;
+  const dim = Math.ceil(pad * 2);
+  const c = document.createElement('canvas');
+  c.width = c.height = dim;
+  const g2 = c.getContext('2d');
+  g2.translate(pad, pad);
+
+  const pts = buildLeafPath(type, s);
+  g2.beginPath();
+  g2.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) g2.lineTo(pts[i][0], pts[i][1]);
+  g2.closePath();
+
+  const grd = g2.createLinearGradient(0, -s, 0, s);
+  grd.addColorStop(0, shade(color, 8));
+  grd.addColorStop(1, shade(color, -22));
+  g2.fillStyle = grd;
+  g2.fill();
+
+  // 叶脉
+  if (s > 10) {
+    g2.strokeStyle = 'rgba(60, 24, 4, 0.26)';
+    g2.lineWidth = Math.max(0.55, s * 0.032);
+    g2.beginPath();
+    g2.moveTo(0, -s * 1.0);
+    g2.lineTo(0, s * 0.9);
+    g2.moveTo(0, 0);
+    g2.lineTo(-s * 0.42, -s * 0.42);
+    g2.moveTo(0, 0);
+    g2.lineTo(s * 0.42, -s * 0.42);
+    g2.moveTo(0, s * 0.3);
+    g2.lineTo(-s * 0.3, -s * 0.08);
+    g2.moveTo(0, s * 0.3);
+    g2.lineTo(s * 0.3, -s * 0.08);
+    g2.stroke();
+  }
+
+  leafSprites.set(key, c);
+  return c;
+}
+
+function drawLeaf(p, sx, sy, alpha) {
+  const spr = leafSprite(p.shape, p.size, p.color);
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(p.ang);
+  ctx.scale(sx * p.scale, sy * p.scale);
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(spr, -spr.width / 2, -spr.height / 2);
+  ctx.restore();
+}
+
+/* ---- 花瓣（sprite 缓存） ---- */
+const petalSprites = new Map();
+
+function petalSprite(size, color) {
+  const s = Math.round(size);
+  const key = s + '_' + color;
+  let spr = petalSprites.get(key);
+  if (spr) return spr;
+
+  const pad = s * 1.45;
+  const dim = Math.ceil(pad * 2);
+  const c = document.createElement('canvas');
+  c.width = c.height = dim;
+  const g2 = c.getContext('2d');
+  g2.translate(pad, pad);
+
+  // 樱花花瓣：圆头尖尾
+  g2.beginPath();
+  g2.moveTo(0, -s * 1.15);
+  g2.bezierCurveTo(s * 1.02, -s * 0.78, s * 0.9, s * 0.6, 0, s * 1.0);
+  g2.bezierCurveTo(-s * 0.9, s * 0.6, -s * 1.02, -s * 0.78, 0, -s * 1.15);
+  g2.closePath();
+
+  const grd = g2.createLinearGradient(0, -s, 0, s);
+  grd.addColorStop(0, shade(color, 10));
+  grd.addColorStop(0.55, color);
+  grd.addColorStop(1, shade(color, -14));
+  g2.fillStyle = grd;
+  g2.fill();
+
+  // 花瓣缺口
+  if (s > 5) {
+    g2.save();
+    g2.globalCompositeOperation = 'destination-out';
+    g2.beginPath();
+    g2.ellipse(0, -s * 1.06, s * 0.2, s * 0.26, 0, 0, TAU);
+    g2.fill();
+    g2.restore();
+  }
+
+  // 中心纹路
+  if (s > 8) {
+    g2.strokeStyle = 'rgba(255,255,255,0.45)';
+    g2.lineWidth = Math.max(0.4, s * 0.04);
+    g2.beginPath();
+    g2.moveTo(0, -s * 0.6);
+    g2.lineTo(0, s * 0.7);
+    g2.stroke();
+  }
+
+  petalSprites.set(key, c);
+  return c;
+}
+
+function drawPetal(p, sx, sy, alpha) {
+  const spr = petalSprite(p.size, p.color);
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(p.ang);
+  ctx.scale(sx * p.scale, sy * p.scale);
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(spr, -spr.width / 2, -spr.height / 2);
+  ctx.restore();
+}
+
+/* ---- 雪花（预渲染 sprite，性能好且支持浅色主题） ---- */
+const snowSprites = {};
+
+function snowSprite(core, halo) {
+  const key = core + '|' + halo;
+  if (snowSprites[key]) return snowSprites[key];
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g2 = c.getContext('2d');
+  const rg = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
+  rg.addColorStop(0, core);
+  rg.addColorStop(0.34, halo);
+  rg.addColorStop(1, 'rgba(200,220,245,0)');
+  g2.fillStyle = rg;
+  g2.beginPath();
+  g2.arc(32, 32, 32, 0, TAU);
+  g2.fill();
+  snowSprites[key] = c;
+  return c;
+}
+
+function drawSnow(p, sx, sy, alpha, light) {
+  const s = p.size * p.scale;
+  const spr = light
+    ? snowSprite(`rgba(122,146,175,${Math.min(1, alpha)})`, `rgba(150,175,205,${alpha * 0.34})`)
+    : snowSprite(`rgba(255,255,255,${Math.min(1, alpha)})`, `rgba(228,242,255,${alpha * 0.36})`);
+  const r = s * 2.6;
+  ctx.drawImage(spr, p.x - r, p.y - r, r * 2, r * 2);
+
+  // 六角星细节（近处大雪花）
+  if (s > 4.0) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.flip * 0.25);
+    ctx.strokeStyle = light
+      ? `rgba(105,130,158,${alpha * 0.85})`
+      : `rgba(255,255,255,${alpha * 0.92})`;
+    ctx.lineWidth = Math.max(0.45, s * 0.115);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * TAU;
+      const dx = Math.cos(a), dy = Math.sin(a);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(dx * s * 1.45, dy * s * 1.45);
+      const bx = dx * s * 0.82, by = dy * s * 0.82;
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx + dx * s * 0.3 - dy * s * 0.33, by + dy * s * 0.3 + dx * s * 0.33);
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx + dx * s * 0.3 + dy * s * 0.33, by + dy * s * 0.3 - dx * s * 0.33);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+/* ---- 蒲公英种子 ---- */
+function drawDandelion(p, sx, sy, alpha, light) {
+  const s = p.size * p.scale;
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(p.ang * 0.4);   // 绒球不跟着疯转
+  ctx.scale(sx * 0.6 + 0.4, 1);
+  ctx.globalAlpha = alpha;
+
+  // 浅色主题下用深绿色调，保证在白底上可见
+  const lineC   = light ? `rgba(96,128,92,${alpha * 0.6})`  : `rgba(255,255,255,${alpha * 0.55})`;
+  const dotC    = light ? `rgba(76,108,74,${alpha * 0.8})`  : `rgba(255,255,255,${alpha * 0.78})`;
+  const coreA   = light ? `rgba(88,120,84,${alpha})`        : `rgba(255,255,255,${alpha})`;
+  const coreMid = light ? `rgba(110,140,100,${alpha * 0.6})`: `rgba(240,246,225,${alpha * 0.6})`;
+
+  // 绒毛（放射细线 + 端点小球）
+  const N = p.special ? 16 : 11;
+  const spinOffset = p.flip * 0.5;
+  ctx.strokeStyle = lineC;
+  ctx.lineWidth = Math.max(0.38, s * 0.075);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * TAU + spinOffset;
+    const ex = Math.cos(a) * s * 1.5;
+    const ey = Math.sin(a) * s * 1.5;
+    ctx.moveTo(Math.cos(a) * s * 0.28, Math.sin(a) * s * 0.28);
+    ctx.lineTo(ex, ey);
+  }
+  ctx.stroke();
+
+  // 绒球外圈
+  ctx.beginPath();
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * TAU + spinOffset;
+    const ex = Math.cos(a) * s * 1.5;
+    const ey = Math.sin(a) * s * 1.5;
+    ctx.moveTo(ex, ey);
+    ctx.arc(ex, ey, Math.max(0.5, s * 0.13), 0, TAU);
+  }
+  ctx.fillStyle = dotC;
+  ctx.fill();
+
+  // 中心
+  const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.55);
+  cg.addColorStop(0, coreA);
+  cg.addColorStop(0.6, coreMid);
+  cg.addColorStop(1, 'rgba(230,240,215,0)');
+  ctx.fillStyle = cg;
+  ctx.beginPath();
+  ctx.arc(0, 0, s * 0.55, 0, TAU);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function shade(hex, pct) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const f = 255 * pct / 100;
+  r = clamp(Math.round(r + f), 0, 255);
+  g = clamp(Math.round(g + f), 0, 255);
+  b = clamp(Math.round(b + f), 0, 255);
+  return `rgb(${r},${g},${b})`;
+}
+
+/* ---- 主绘制 ---- */
+const order = [];
+
+function draw() {
+  drawBackground();
+
+  const shakeX = lastShake ? rnd(-lastShake, lastShake) : 0;
+  const shakeY = lastShake ? rnd(-lastShake, lastShake) : 0;
+  if (lastShake) ctx.translate(shakeX, shakeY);
+
+  // 季节绘制分派
+  const season = state.season;
+
+  // 按深度排序：远的先画
+  order.length = 0;
+  for (let i = 0; i < particles.length; i++) order.push(particles[i]);
+  order.sort((a, b) => a.depth - b.depth);
+
+  // 浅色主题（纯白/宣纸）下：雪花不用 lighter 叠加，否则会过曝成白团
+  const lightTheme = document.body.classList.contains('light-bg');
+
+  // 拖尾先画（在粒子下层）
+  if (state.trail) drawTrails(season, lightTheme);
+
+  if (season === 'winter' && !lightTheme) ctx.globalCompositeOperation = 'lighter';
+
+  for (let i = 0; i < order.length; i++) {
+    const p = order[i];
+    const sx = Math.cos(p.flip);
+    const sy = 1;
+    const a = p.alpha * lerp(0.42, 1, p.depth);
+
+    if (season === 'autumn') {
+      drawLeaf(p, sx, sy, a);
+    } else if (season === 'spring') {
+      drawPetal(p, sx, sy, a);
+    } else if (season === 'summer') {
+      drawDandelion(p, sx, sy, a, lightTheme);
+    } else {
+      drawSnow(p, sx, sy, a, lightTheme);
+    }
+  }
+
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+
+  // 风场光斑
+  if (ptr.speed > 2) {
+    const s = clamp(ptr.speed / 34, 0, 1);
+    const r = lerp(80, 260, state.power / 100) * (0.6 + s * 0.5);
+    const g = ctx.createRadialGradient(ptr.x, ptr.y, 0, ptr.x, ptr.y, r);
+    g.addColorStop(0, `rgba(255,255,255,${0.055 * s})`);
+    g.addColorStop(0.5, `rgba(255,255,255,${0.022 * s})`);
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(ptr.x, ptr.y, r, 0, TAU);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  if (lastShake) ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+
+function drawTrails(season, lightTheme) {
+  ctx.save();
+  ctx.globalCompositeOperation = lightTheme ? 'source-over' : 'lighter';
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    if (!p.hist || p.hist.length < 2) continue;
+    const h = p.hist;
+    ctx.beginPath();
+    ctx.moveTo(h[0][0], h[0][1]);
+    for (let k = 1; k < h.length; k++) ctx.lineTo(h[k][0], h[k][1]);
+    let col;
+    if (lightTheme)        col = `rgba(120,140,165,${0.18 * p.alpha})`;
+    else if (season === 'winter') col = `rgba(200,228,255,${0.16 * p.alpha})`;
+    else if (season === 'summer') col = `rgba(240,255,235,${0.16 * p.alpha})`;
+    else                   col = `rgba(255,240,210,${0.15 * p.alpha})`;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = Math.max(0.6, p.size * 0.14);
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    // 衰减历史
+    if (h.length > 2) h.shift();
+  }
+  ctx.restore();
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+/* ============================================================
+   爆发 / 点击特效
+   ============================================================ */
+function emitBurst(x, y, count, powerMul = 1) {
+  const powerT = state.power / 100;
+  const spd = lerp(2.4, 13.5, powerT * powerT) * powerMul * 1.5;
+  const n = Math.min(count, 220);
+
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU + rnd(-0.16, 0.16);
+    const v = spd * rnd(0.45, 1.15);
+
+    let p;
+    if (state.special && Math.random() < 0.06) {
+      p = makeSpecial({ x, y });
+      p.size *= rnd(0.7, 1.1);
+    } else {
+      p = makeParticle({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v });
+    }
+    p.x = x + Math.cos(a) * rnd(2, 18);
+    p.y = y + Math.sin(a) * rnd(2, 18);
+    p.depth = rnd(0.5, 1);
+    p.scale = 0;
+    p.fx = Math.cos(a) * v;
+    p.fy = Math.sin(a) * v - (state.season === 'summer' ? 2.2 : 0.6);
+    p.spin = rnd(-0.14, 0.14);
+    particles.push(p);
+  }
+
+  // 数量超限时裁掉最老的
+  const limit = Math.min(MAX_HARD + 300, Math.max(state.density * 1.5, 400));
+  if (particles.length > limit) {
+    particles.splice(0, particles.length - limit);
+  }
+}
+
+/* ============================================================
+   音效（WebAudio 合成）
+   ============================================================ */
+const audio = {
+  ctx: null,
+  master: null,
+  windNode: null,
+  windGain: null,
+  noiseBuf: null,
+  ready: false,
+
+  init() {
+    if (this.ready) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    this.ctx = new AC();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.0;
+    this.master.connect(this.ctx.destination);
+
+    // 噪声缓冲
+    const len = this.ctx.sampleRate * 2;
+    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    this.noiseBuf = buf;
+
+    // 持续风声（带通噪声 + 缓慢调制）
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 620;
+    bp.Q.value = 0.55;
+
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1800;
+
+    const g = this.ctx.createGain();
+    g.gain.value = 0;
+
+    src.connect(bp).connect(lp).connect(g).connect(this.master);
+    src.start();
+
+    this.windNode = bp;
+    this.windGain = g;
+    this.ready = true;
+  },
+
+  setEnabled(on) {
+    if (on) {
+      this.init();
+      if (!this.ctx) return;
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      this.master.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.master.gain.linearRampToValueAtTime(0.55, this.ctx.currentTime + 0.5);
+    } else if (this.ctx) {
+      this.master.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.master.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.3);
+    }
+  },
+
+  // 根据风力实时更新风声
+  updateWind(windT, speed) {
+    if (!this.ready || !state.sound) return;
+    const now = this.ctx.currentTime;
+    const target = clamp(0.012 + windT * 0.10 + speed * 0.05, 0, 0.2);
+    this.windGain.gain.setTargetAtTime(target, now, 0.25);
+    this.windNode.frequency.setTargetAtTime(420 + windT * 1100, now, 0.3);
+  },
+
+  // 季节切换音：柔和的和弦扫
+  seasonChime(season) {
+    if (!this.ready || !state.sound) return;
+    const notes = {
+      autumn: [392, 523.25, 659.25],
+      spring: [523.25, 659.25, 783.99],
+      summer: [440, 554.37, 659.25],
+      winter: [659.25, 783.99, 987.77],
+    }[season] || [440, 550];
+
+    const now = this.ctx.currentTime;
+    notes.forEach((f, i) => {
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = f;
+      const t0 = now + i * 0.075;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(0.075, t0 + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.1);
+      o.connect(g).connect(this.master);
+      o.start(t0);
+      o.stop(t0 + 1.2);
+    });
+  },
+
+  // 点击爆炸音：低频冲击 + 噪声爆
+  burst(powerT) {
+    if (!this.ready || !state.sound) return;
+    const now = this.ctx.currentTime;
+
+    // 冲击波
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(190 - powerT * 60, now);
+    o.frequency.exponentialRampToValueAtTime(42, now + 0.28);
+    g.gain.setValueAtTime(0.16 * (0.5 + powerT), now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    o.connect(g).connect(this.master);
+    o.start(now);
+    o.stop(now + 0.4);
+
+    // 沙沙声
+    const s = this.ctx.createBufferSource();
+    s.buffer = this.noiseBuf;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(2600, now);
+    bp.frequency.exponentialRampToValueAtTime(700, now + 0.4);
+    bp.Q.value = 1.1;
+    const ng = this.ctx.createGain();
+    ng.gain.setValueAtTime(0.09 + powerT * 0.07, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+    s.connect(bp).connect(ng).connect(this.master);
+    s.start(now);
+    s.stop(now + 0.5);
+  },
+
+  // 重置：上扬的轻音
+  swoosh() {
+    if (!this.ready || !state.sound) return;
+    const now = this.ctx.currentTime;
+    const s = this.ctx.createBufferSource();
+    s.buffer = this.noiseBuf;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(300, now);
+    bp.frequency.exponentialRampToValueAtTime(2800, now + 0.55);
+    bp.Q.value = 0.9;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0.11, now + 0.12);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+    s.connect(bp).connect(g).connect(this.master);
+    s.start(now);
+    s.stop(now + 0.8);
+  },
+
+  // 游戏哔声：短促清晰，用于得分/失误反馈
+  beep(freq, dur, vol, type) {
+    if (!this.ready || !state.sound) return;
+    const now = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type || 'triangle';
+    o.frequency.setValueAtTime(freq, now);
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(vol || 0.07, now + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + (dur || 0.08));
+    o.connect(g).connect(this.master);
+    o.start(now);
+    o.stop(now + (dur || 0.08) + 0.02);
+  },
+};
+
+/* ============================================================
+   主循环
+   ============================================================ */
+let lastT = performance.now();
+let running = true;
+let fpsAcc = 0, fpsN = 0, fpsTimer = 0;
+
+function loop(now) {
+  if (!running) return;
+  let dt = now - lastT;
+  lastT = now;
+  dt = clamp(dt, 6, 46);
+
+  // 游戏进行中：主场景仍然更新（背景氛围），但不再响应指针吹散
+  const gaming = window.__GameModule && window.__GameModule.isActive();
+
+  if (!gaming) applyPointerWind(dt);
+  update(dt);
+  draw();
+
+  // FPS 统计
+  fpsAcc += dt; fpsN++; fpsTimer += dt;
+  if (fpsTimer > 480) {
+    const fps = Math.round(1000 / (fpsAcc / fpsN));
+    statFps.textContent = fps;
+    statCount.textContent = particles.length;
+    statBlown.textContent = Math.floor(state.blownCount);
+    fpsAcc = 0; fpsN = 0; fpsTimer = 0;
+  }
+
+  // 风声跟随风速
+  if (state.sound) {
+    audio.updateWind(state.wind / 100, clamp(ptr.speed / 30, 0, 1));
+  }
+
+  requestAnimationFrame(loop);
+}
+
+/* ============================================================
+   DOM 引用
+   ============================================================ */
+const hud       = document.getElementById('hud');
+const titleEl   = document.getElementById('title');
+const subEl     = document.getElementById('subtitle');
+const cursorEl  = document.getElementById('cursor');
+const rippleBox = document.getElementById('ripples');
+const panel     = document.getElementById('panel');
+const panelBtn  = document.getElementById('panelToggle');
+const statFps   = document.getElementById('statFps');
+const statCount = document.getElementById('statCount');
+const statBlown = document.getElementById('statBlown');
+
+const windSlider    = document.getElementById('windSlider');
+const windOut       = document.getElementById('windOut');
+const dirSlider     = document.getElementById('dirSlider');
+const dirOut        = document.getElementById('dirOut');
+const powerSlider   = document.getElementById('powerSlider');
+const powerOut      = document.getElementById('powerOut');
+const densitySlider = document.getElementById('densitySlider');
+const densityOut    = document.getElementById('densityOut');
+const trailToggle   = document.getElementById('trailToggle');
+const soundToggle   = document.getElementById('soundToggle');
+const specialToggle = document.getElementById('specialToggle');
+const resetBtn      = document.getElementById('resetBtn');
+const bgsBox        = document.getElementById('bgs');
+const seasonBtns    = Array.from(document.querySelectorAll('.season-btn'));
+
+/* ============================================================
+   季节切换
+   ============================================================ */
+function setSeason(key, silent) {
+  if (key === state.season && particles.length) return;
+  const prev = state.season;
+  state.season = key;
+  C = SEASONS[key];
+
+  seasonBtns.forEach(b => b.classList.toggle('active', b.dataset.season === key));
+
+  // 主题色
+  document.documentElement.style.setProperty('--accent', C.accent);
+  document.body.classList.remove('light-bg', 'dark-bg');
+
+  // 背景主题跟随
+  if (state.bg === 'auto') {
+    applyThemeHint(null);
+  } else {
+    applyThemeHint(BG_PRESETS[state.bg]);
+  }
+
+  // 标题过渡
+  hud.classList.add('switching');
+  setTimeout(() => {
+    titleEl.textContent = C.label;
+    subEl.textContent = C.tip;
+    hud.classList.remove('switching');
+    hud.classList.remove('faded');
+  }, 240);
+
+  // 重新播种
+  clearAll();
+  seed(state.density);
+  bgCacheKey = '';
+
+  if (!silent) audio.seasonChime(key);
+}
+
+function applyThemeHint(bg) {
+  document.body.classList.remove('light-bg', 'dark-bg');
+  if (bg && bg.theme === 'light') document.body.classList.add('light-bg');
+  else if (bg && bg.theme === 'dark') document.body.classList.add('dark-bg');
+  else if (state.bg === 'auto') {
+    // 秋/春/夏背景中等亮度，冬偏暗
+    // 默认不加类
+  }
+}
+
+/* ============================================================
+   背景切换
+   ============================================================ */
+function setBackground(key) {
+  state.bg = key;
+  BG = BG_PRESETS[key];
+  Array.from(bgsBox.children).forEach(el => {
+    el.classList.toggle('active', el.dataset.bg === key);
+  });
+  document.body.classList.remove('light-bg', 'dark-bg');
+  if (BG && BG.theme === 'light') document.body.classList.add('light-bg');
+  else if (BG && BG.theme === 'dark') document.body.classList.add('dark-bg');
+  bgCacheKey = '';
+}
+
+/* ============================================================
+   控件绑定
+   ============================================================ */
+function windLabel(v) {
+  if (v < 4) return '无风';
+  if (v < 18) return '一缕';
+  if (v < 34) return '微风';
+  if (v < 52) return '和风';
+  if (v < 68) return '劲风';
+  if (v < 84) return '强风';
+  return '狂风';
+}
+
+function powerLabel(v) {
+  if (v < 12) return '轻拂';
+  if (v < 32) return '柔风';
+  if (v < 55) return '中等';
+  if (v < 78) return '有力';
+  return '冲击波';
+}
+
+windSlider.addEventListener('input', () => {
+  state.wind = +windSlider.value;
+  windOut.textContent = windLabel(state.wind);
+  if (state.wind > 0 && state.wind < 4) state.wind = 0;
+});
+
+dirSlider.addEventListener('input', () => {
+  state.windDir = +dirSlider.value;
+  const d = state.windDir;
+  const names = [['右', '→'], ['右下', '↘'], ['下', '↓'], ['左下', '↙'],
+                 ['左', '←'], ['左上', '↖'], ['上', '↑'], ['右上', '↗']];
+  const idx = Math.round(d / 45) % 8;
+  dirOut.textContent = names[idx][0] + ' ' + names[idx][1];
+});
+
+powerSlider.addEventListener('input', () => {
+  state.power = +powerSlider.value;
+  powerOut.textContent = powerLabel(state.power);
+});
+
+densitySlider.addEventListener('input', () => {
+  state.density = +densitySlider.value;
+  densityOut.textContent = state.density;
+});
+
+trailToggle.addEventListener('change', () => { state.trail = trailToggle.checked; });
+
+soundToggle.addEventListener('change', () => {
+  state.sound = soundToggle.checked;
+  audio.setEnabled(state.sound);
+});
+
+specialToggle.addEventListener('change', () => {
+  state.special = specialToggle.checked;
+});
+
+resetBtn.addEventListener('click', () => {
+  clearAll();
+  seed(state.density);
+  state.blownCount = 0;
+  hud.classList.remove('faded');
+  audio.swoosh();
+  // 按钮反馈
+  resetBtn.style.transform = 'scale(0.96)';
+  setTimeout(() => resetBtn.style.transform = '', 130);
+});
+
+bgsBox.addEventListener('click', e => {
+  const b = e.target.closest('.bg-dot');
+  if (b) setBackground(b.dataset.bg);
+});
+
+seasonBtns.forEach(btn => {
+  btn.addEventListener('click', () => setSeason(btn.dataset.season));
+});
+
+panelBtn.addEventListener('click', () => {
+  panel.classList.toggle('open');
+  panelBtn.classList.toggle('active', panel.classList.contains('open'));
+});
+
+/* ============================================================
+   指针交互
+   ============================================================ */
+function updatePointer(x, y) {
+  if (ptr.x > -9000) {
+    const dx = x - ptr.x, dy = y - ptr.y;
+    ptr.vx = ptr.vx * 0.5 + dx * 0.5;
+    ptr.vy = ptr.vy * 0.5 + dy * 0.5;
+    ptr.speed = Math.hypot(dx, dy);
+  }
+  ptr.x = x; ptr.y = y;
+}
+
+window.addEventListener('mousemove', e => {
+  updatePointer(e.clientX, e.clientY);
+  cursorEl.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+  cursorEl.style.opacity = '1';
+}, { passive: true });
+
+window.addEventListener('mouseleave', () => {
+  ptr.x = ptr.y = -9999;
+  ptr.speed = 0;
+  cursorEl.style.opacity = '0';
+});
+window.addEventListener('mouseenter', () => { cursorEl.style.opacity = '1'; });
+
+// 光标热区 & 按下反馈
+let cursorTimer = setInterval(() => {
+  cursorEl.classList.toggle('hot', ptr.speed > 7);
+}, 70);
+
+/* ---- 点击涟漪 ---- */
+function spawnRipple(x, y, size) {
+  const el = document.createElement('div');
+  el.className = 'ripple';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.style.width = size + 'px';
+  el.style.height = size + 'px';
+  rippleBox.appendChild(el);
+  setTimeout(() => el.remove(), 700);
+}
+
+/* ---- 点击 / 长按 ---- */
+let holdTimer = null;
+let holdInterval = null;
+
+window.addEventListener('pointerdown', e => {
+  // 游戏进行中由 games.js 接管
+  if (window.__GameModule && window.__GameModule.isActive()) return;
+  // 面板内点击不触发粒子
+  if (e.target.closest('.panel, .panel-toggle, .stats, .game-card, .game-hud')) return;
+
+  ptr.down = true;
+  ptr.holdTime = 0;
+  updatePointer(e.clientX, e.clientY);
+
+  // 立即炸开
+  const powerT = state.power / 100;
+  const count = Math.round(lerp(10, 46, powerT));
+
+  emitBurst(e.clientX, e.clientY, count);
+  spawnRipple(e.clientX, e.clientY, lerp(90, 320, powerT));
+  audio.burst(powerT);
+
+  if (e.pointerType === 'mouse') {
+    cursorEl.classList.add('blast');
+    setTimeout(() => cursorEl.classList.remove('blast'), 190);
+  }
+
+  // 长按持续喷射
+  holdTimer = setTimeout(() => {
+    holdInterval = setInterval(() => {
+      if (ptr.down) emitBurst(ptr.x, ptr.y, 6, 0.5);
+    }, 90);
+  }, 300);
+}, { passive: true });
+
+window.addEventListener('pointerup', () => {
+  ptr.down = false;
+  ptr.holdTime = 0;
+  clearTimeout(holdTimer);
+  clearInterval(holdInterval);
+}, { passive: true });
+
+window.addEventListener('pointercancel', () => {
+  ptr.down = false;
+  clearTimeout(holdTimer);
+  clearInterval(holdInterval);
+}, { passive: true });
+
+// 触摸移动
+window.addEventListener('touchmove', e => {
+  const tp = e.touches[0];
+  if (tp) updatePointer(tp.clientX, tp.clientY);
+}, { passive: true });
+
+/* ============================================================
+   键盘快捷键
+   ============================================================ */
+const seasonOrder = ['autumn', 'spring', 'summer', 'winter'];
+
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+
+  if (e.key >= '1' && e.key <= '4') {
+    setSeason(seasonOrder[+e.key - 1]);
+  } else if (e.key.toLowerCase() === 'h') {
+    panel.classList.toggle('open');
+    panelBtn.classList.toggle('active', panel.classList.contains('open'));
+  } else if (e.key.toLowerCase() === 'r') {
+    resetBtn.click();
+  } else if (e.key.toLowerCase() === 't') {
+    trailToggle.checked = !trailToggle.checked;
+    trailToggle.dispatchEvent(new Event('change'));
+  } else if (e.key === ' ') {
+    e.preventDefault();
+    // 空格：全屏吹散
+    const powerT = state.power / 100;
+    for (let i = 0; i < 14; i++) {
+      setTimeout(() => {
+        emitBurst(rnd(W * 0.1, W * 0.9), rnd(H * 0.2, H * 0.9), 8, 1.2);
+      }, i * 60);
+    }
+    audio.swoosh();
+  }
+});
+
+/* ============================================================
+   尺寸 & 启动
+   ============================================================ */
+window.addEventListener('resize', () => {
+  resize();
+  bgCacheKey = '';
+  for (const p of particles) {
+    if (p.x > W + 200) p.x = rnd(0, W);
+  }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) lastT = performance.now();
+});
+
+// 初始化
+resize();
+setSeason('autumn', true);
+windOut.textContent = windLabel(state.wind);
+powerOut.textContent = powerLabel(state.power);
+densityOut.textContent = state.density;
+
+/* ============================================================
+   对外桥接：供 games.js 使用
+   ============================================================ */
+window.__ptr = ptr;
+window.__state = state;
+window.__beep = (freq, dur, vol, type) => audio.beep(freq, dur, vol, type);
+window.__getCanvasSize = () => ({ W, H });
+
+requestAnimationFrame(loop);
+
+// 首次交互时解锁音频
+const unlockAudio = () => {
+  if (state.sound) audio.setEnabled(true);
+  window.removeEventListener('pointerdown', unlockAudio);
+};
+window.addEventListener('pointerdown', unlockAudio);
+
+})();
+
+</script>
+<script>
+/* ============================================================
+   四季物语 · 小游戏模块
+   三个小游戏：接落叶 / 吹叶入篮 / 点落叶连击
+   共享主场景的 canvas 与指针系统，通过 window.FallEngine 桥接
+   ============================================================ */
+(() => {
+'use strict';
+
+const TAU = Math.PI * 2;
+const rnd   = (a, b) => a + Math.random() * (b - a);
+const rndI  = (a, b) => Math.floor(rnd(a, b + 1));
+const pick  = a => a[(Math.random() * a.length) | 0];
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp  = (a, b, t) => a + (b - a) * t;
+
+/* ============================================================
+   DOM
+   ============================================================ */
+const canvas    = document.getElementById('scene');
+const ctx       = canvas.getContext('2d');
+const gameHud   = document.getElementById('gameHud');
+const ghName    = document.getElementById('ghName');
+const ghScore   = document.getElementById('ghScore');
+const ghCombo   = document.getElementById('ghCombo');
+const ghTimer   = document.getElementById('ghTimer');
+const ghGoal    = document.getElementById('ghGoal');
+const ghBar     = document.getElementById('ghBar');
+const gameCard  = document.getElementById('gameCard');
+const gcIcon    = document.getElementById('gcIcon');
+const gcTitle   = document.getElementById('gcTitle');
+const gcDesc    = document.getElementById('gcDesc');
+const gcRules   = document.getElementById('gcRules');
+const gcBest    = document.getElementById('gcBest');
+const gcStart   = document.getElementById('gcStart');
+const gcQuit    = document.getElementById('gcQuit');
+const cursorEl  = document.getElementById('cursor');
+
+/* ============================================================
+   游戏定义
+   ============================================================ */
+const GAMES = {
+  catch: {
+    name: '接落叶',
+    icon: '🧺',
+    duration: 30,
+    desc: '移动鼠标，让篮子在落叶下方接住它们。',
+    rules: [
+      ['移动', '鼠标 / 手指左右移动，篮筐跟随'],
+      ['得分', '接住一片 <b>+1</b>，金色枫叶 <b>+5</b>'],
+      ['失误', '漏接 3 片落叶即结束'],
+      ['连击', '连续接住会累积连击，每 5 连额外加分'],
+    ],
+    goal: '接住落叶得分',
+  },
+  basket: {
+    name: '吹叶入篮',
+    icon: '🍁',
+    duration: 60,
+    desc: '用鼠标扫起的风，把落叶吹进右上角的篮圈。',
+    rules: [
+      ['风', '鼠标快速扫动会产生风，推动落叶'],
+      ['得分', '落叶进入篮圈 <b>+10</b>，金叶 <b>+30</b>'],
+      ['风向', '面板里的风向滑块也能帮你'],
+      ['目标', '60 秒内拿最多分'],
+    ],
+    goal: '把落叶吹进篮圈',
+  },
+  combo: {
+    name: '点落叶连击',
+    icon: '👆',
+    duration: 30,
+    desc: '点击画面中飘动的落叶，快速连点叠加连击倍率。',
+    rules: [
+      ['点击', '点中落叶 <b>+1</b> × 连击倍率'],
+      ['连击', '1.2 秒内连续点中，倍率累加'],
+      ['中断', '超时未点或点空，连击清零'],
+      ['金叶', '金色枫叶 <b>+5</b> 并延长连击窗口'],
+    ],
+    goal: '快速点击叠连击',
+  },
+};
+
+const BEST_KEY = 'falling-leaves-best-v1';
+
+function loadBest() {
+  try { return JSON.parse(localStorage.getItem(BEST_KEY) || '{}'); }
+  catch { return {}; }
+}
+function saveBest(obj) {
+  try { localStorage.setItem(BEST_KEY, JSON.stringify(obj)); } catch {}
+}
+
+let bests = loadBest();
+
+/* ============================================================
+   状态
+   ============================================================ */
+const G = {
+  active: false,       // 是否在游戏中（含倒计时阶段）
+  mode: null,          // 当前游戏 key
+  phase: 'idle',       // idle | ready | playing | over
+  score: 0,
+  timeLeft: 0,
+  duration: 0,
+  combo: 0,
+  comboTimer: 0,
+  lives: 3,
+  // 游戏专属实体
+  items: [],
+  basket: { x: 0, y: 0, w: 0, targetX: 0 },
+  hoop: { x: 0, y: 0, r: 0 },
+  particles: [],       // 游戏内特效（飘字、火花）
+  shake: 0,
+  flash: 0,
+  comboWindow: 1200,
+  lastHitTime: 0,
+};
+
+/* ============================================================
+   工具：飘字 / 火花
+   ============================================================ */
+function floatText(x, y, text, color, size) {
+  G.particles.push({
+    type: 'text', x, y, text, color: color || '#ffe3a8',
+    size: size || 18, life: 1, vy: -1.5, vx: rnd(-0.4, 0.4),
+  });
+}
+
+function sparks(x, y, color, n) {
+  for (let i = 0; i < (n || 8); i++) {
+    const a = rnd(0, TAU), v = rnd(1.2, 5);
+    G.particles.push({
+      type: 'spark', x, y,
+      vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+      color: color || '#ffc94d', life: 1, size: rnd(1.5, 3.5),
+    });
+  }
+}
+
+function updateParticles(dt) {
+  const dtf = dt / 16.667;
+  for (let i = G.particles.length - 1; i >= 0; i--) {
+    const p = G.particles[i];
+    p.life -= 0.022 * dtf;
+    if (p.life <= 0) { G.particles.splice(i, 1); continue; }
+    p.x += (p.vx || 0) * dtf;
+    p.y += (p.vy || 0) * dtf;
+    if (p.type === 'spark') {
+      p.vy += 0.22 * dtf;
+      p.vx *= 0.96;
+    } else {
+      p.vy *= 0.97;
+    }
+  }
+}
+
+function drawParticles() {
+  for (const p of G.particles) {
+    const a = clamp(p.life, 0, 1);
+    if (p.type === 'text') {
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.font = `600 ${p.size}px -apple-system, "PingFang SC", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = 'rgba(0,0,0,0.42)';
+      ctx.strokeText(p.text, p.x, p.y);
+      ctx.fillStyle = p.color;
+      ctx.fillText(p.text, p.x, p.y);
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.globalAlpha = a * 0.9;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * a, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+/* ============================================================
+   游戏实体：落叶（独立于主场景，避免互相污染）
+   ============================================================ */
+const leafSprites = new Map();
+
+function shade(hex, pct) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const f = 255 * pct / 100;
+  r = clamp(Math.round(r + f), 0, 255);
+  g = clamp(Math.round(g + f), 0, 255);
+  b = clamp(Math.round(b + f), 0, 255);
+  return `rgb(${r},${g},${b})`;
+}
+
+function makeLeafSprite(type, size, color) {
+  const s = Math.round(size);
+  const key = type + '_' + s + '_' + color;
+  let spr = leafSprites.get(key);
+  if (spr) return spr;
+
+  const pad = s * 1.4;
+  const dim = Math.ceil(pad * 2);
+  const c = document.createElement('canvas');
+  c.width = c.height = dim;
+  const g2 = c.getContext('2d');
+  g2.translate(pad, pad);
+
+  const lobes = type === 0 ? 5 : type === 1 ? 3 : 4;
+  const STEPS = 72;
+  g2.beginPath();
+  for (let i = 0; i <= STEPS; i++) {
+    const a = (i / STEPS) * TAU - Math.PI / 2;
+    const lobe = 0.55 + 0.45 * Math.pow(Math.abs(Math.cos(a * lobes / 2)), 0.75);
+    const serr = 1 + 0.055 * Math.sin(a * lobes * 6);
+    const r = s * lobe * serr;
+    const px = Math.cos(a) * r * 0.80;
+    const py = Math.sin(a) * r * 1.00;
+    if (i === 0) g2.moveTo(px, py); else g2.lineTo(px, py);
+  }
+  g2.closePath();
+
+  const grd = g2.createLinearGradient(0, -s, 0, s);
+  grd.addColorStop(0, shade(color, 8));
+  grd.addColorStop(1, shade(color, -22));
+  g2.fillStyle = grd;
+  g2.fill();
+
+  if (s > 10) {
+    g2.strokeStyle = 'rgba(60, 24, 4, 0.26)';
+    g2.lineWidth = Math.max(0.55, s * 0.032);
+    g2.beginPath();
+    g2.moveTo(0, -s * 1.0); g2.lineTo(0, s * 0.9);
+    g2.moveTo(0, 0); g2.lineTo(-s * 0.42, -s * 0.42);
+    g2.moveTo(0, 0); g2.lineTo(s * 0.42, -s * 0.42);
+    g2.stroke();
+  }
+
+  leafSprites.set(key, c);
+  return c;
+}
+
+const LEAF_COLORS = ['#c0562a','#d4692b','#e08b34','#b8451f','#cf7a2c',
+                     '#9c4a1e','#e2a047','#a85a24','#d97b3a'];
+const GOLD_COLORS = ['#f5c542','#ffd96b','#e8a92c','#ffcf45'];
+
+function spawnLeaf(opts = {}) {
+  const special = opts.special || (Math.random() < 0.09);
+  const size = special ? rnd(24, 34) : rnd(14, 24);
+  const color = special ? pick(GOLD_COLORS) : pick(LEAF_COLORS);
+
+  return {
+    x: opts.x != null ? opts.x : rnd(40, W - 40),
+    y: opts.y != null ? opts.y : -40,
+    vx: opts.vx != null ? opts.vx : rnd(-0.3, 0.3),
+    vy: opts.vy != null ? opts.vy : rnd(1.0, 2.4),
+    size,
+    color,
+    special,
+    shape: rndI(0, 2),
+    ang: rnd(0, TAU),
+    spin: rnd(-0.03, 0.03),
+    flip: rnd(0, TAU),
+    flipSp: rnd(0.01, 0.04),
+    ph: rnd(0, TAU),
+    phSp: rnd(0.02, 0.05),
+    scale: 0,
+    hit: false,
+    scored: false,
+    // 被风推动
+    fx: 0, fy: 0,
+  };
+}
+
+let W = window.innerWidth, H = window.innerHeight;
+function syncSize() { W = window.innerWidth; H = window.innerHeight; }
+window.addEventListener('resize', syncSize);
+
+function drawLeafItem(p) {
+  const spr = makeLeafSprite(p.shape, p.size, p.color);
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(p.ang);
+  ctx.scale(Math.cos(p.flip) * p.scale, p.scale);
+  ctx.drawImage(spr, -spr.width / 2, -spr.height / 2);
+  ctx.restore();
+
+  // 金叶外发光
+  if (p.special) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const r = p.size * 1.5;
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+    g.addColorStop(0, 'rgba(255, 214, 90, 0.32)');
+    g.addColorStop(1, 'rgba(255, 214, 90, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+/* ============================================================
+   游戏一：接落叶
+   ============================================================ */
+const CATCH = {
+  spawnTimer: 0,
+  spawnInterval: 620,
+  missed: 0,
+
+  start() {
+    G.score = 0;
+    G.combo = 0;
+    G.lives = 3;
+    this.missed = 0;
+    this.spawnTimer = 0;
+    this.spawnInterval = 620;
+    G.items = [];
+    G.basket.w = clamp(W * 0.12, 90, 170);
+    G.basket.x = W / 2;
+    G.basket.targetX = W / 2;
+    G.basket.y = H - 78;
+    // 先铺几片
+    for (let i = 0; i < 5; i++) {
+      const l = spawnLeaf({ y: rnd(-H * 0.5, H * 0.35) });
+      l.vy = rnd(1.0, 2.2);
+      G.items.push(l);
+    }
+  },
+
+  update(dt) {
+    const dtf = dt / 16.667;
+
+    // 篮筐跟随指针
+    const _ptr = bridge.ptr;
+    if (_ptr.x > -9000) G.basket.targetX = _ptr.x;
+    G.basket.x += (G.basket.targetX - G.basket.x) * 0.22 * dtf;
+    G.basket.x = clamp(G.basket.x, G.basket.w / 2, W - G.basket.w / 2);
+
+    // 生成
+    this.spawnTimer += dt;
+    // 难度随时间上升
+    const progress = 1 - G.timeLeft / G.duration;
+    this.spawnInterval = lerp(620, 300, progress);
+    if (this.spawnTimer > this.spawnInterval) {
+      this.spawnTimer = 0;
+      G.items.push(spawnLeaf({ vy: rnd(1.2, 2.4) * lerp(1, 1.55, progress) }));
+    }
+
+    const bw = G.basket.w;
+    const by = G.basket.y;
+    const bh = 26;
+
+    for (let i = G.items.length - 1; i >= 0; i--) {
+      const p = G.items[i];
+      if (p.scale < 1) p.scale = Math.min(1, p.scale + 0.09 * dtf);
+
+      p.ph += p.phSp * dtf;
+      p.ang += p.spin * dtf;
+      p.flip += p.flipSp * dtf;
+
+      p.x += (p.vx + Math.sin(p.ph) * 0.55 + p.fx) * dtf;
+      p.y += (p.vy + p.fy) * dtf;
+      p.fx *= 0.95; p.fy *= 0.95;
+
+      // 接住判定
+      if (!p.scored) {
+        const inX = Math.abs(p.x - G.basket.x) < bw * 0.52;
+        const inY = p.y > by - bh && p.y < by + bh * 1.6;
+        if (inX && inY) {
+          p.scored = true;
+          G.items.splice(i, 1);
+          this.hit(p);
+          continue;
+        }
+      }
+
+      // 落地漏接
+      if (p.y > H + 40) {
+        G.items.splice(i, 1);
+        if (!p.scored) this.miss(p);
+      }
+    }
+  },
+
+  hit(p) {
+    const base = p.special ? 5 : 1;
+    G.combo++;
+    if (G.combo > 0 && G.combo % 5 === 0) {
+      const bonus = Math.floor(G.combo / 5) * 2;
+      G.score += base + bonus;
+      floatText(p.x, p.y - 14, `连击 ${G.combo}  +${base + bonus}`, '#ffd86b', 20);
+      sparks(p.x, p.y, '#ffd86b', 16);
+    } else {
+      G.score += base;
+      floatText(p.x, p.y - 14, `+${base}`, p.special ? '#ffd86b' : '#ffe9c0', p.special ? 22 : 16);
+      sparks(p.x, p.y, p.special ? '#ffd86b' : '#ffb347', p.special ? 14 : 6);
+    }
+    bridge.beep(p.special ? 880 : 620, 0.06, p.special ? 0.1 : 0.06);
+    updateScoreUI();
+    showCombo(G.combo);
+  },
+
+  miss(p) {
+    this.missed++;
+    G.combo = 0;
+    showCombo(0);
+    G.lives--;
+    G.shake = 6;
+    G.flash = 0.28;
+    floatText(p.x, H - 110, '漏接', '#ff8a6e', 15);
+    bridge.beep(180, 0.12, 0.06, 'sawtooth');
+    if (G.lives <= 0) {
+      endGame();
+    }
+  },
+
+  draw() {
+    // 落点阴影线（帮助判断）
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    const grd = ctx.createLinearGradient(G.basket.x, H - 120, G.basket.x, H);
+    grd.addColorStop(0, 'rgba(255,200,120,0)');
+    grd.addColorStop(1, 'rgba(255,200,120,0.5)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(G.basket.x - G.basket.w * 0.5, H - 120, G.basket.w, 120);
+    ctx.restore();
+
+    // 篮子
+    const bx = G.basket.x, by = G.basket.y, bw = G.basket.w;
+    ctx.save();
+    ctx.translate(bx, by);
+
+    // 篮子主体（梯形）
+    const topW = bw, botW = bw * 0.74, hh = 46;
+    ctx.beginPath();
+    ctx.moveTo(-topW / 2, 0);
+    ctx.lineTo(topW / 2, 0);
+    ctx.lineTo(botW / 2, hh);
+    ctx.lineTo(-botW / 2, hh);
+    ctx.closePath();
+    const bg = ctx.createLinearGradient(0, 0, 0, hh);
+    bg.addColorStop(0, '#b5763c');
+    bg.addColorStop(0.5, '#9a5f2c');
+    bg.addColorStop(1, '#7a4620');
+    ctx.fillStyle = bg;
+    ctx.fill();
+
+    // 编织纹
+    ctx.strokeStyle = 'rgba(60, 30, 8, 0.28)';
+    ctx.lineWidth = 1.5;
+    for (let i = 1; i < 4; i++) {
+      const y = (hh / 4) * i;
+      const w2 = lerp(topW, botW, i / 4) / 2;
+      ctx.beginPath();
+      ctx.moveTo(-w2, y);
+      ctx.lineTo(w2, y);
+      ctx.stroke();
+    }
+    // 竖向编织
+    for (let i = 1; i < 7; i++) {
+      const t = i / 7;
+      ctx.beginPath();
+      ctx.moveTo(lerp(-topW / 2, topW / 2, t), 0);
+      ctx.lineTo(lerp(-botW / 2, botW / 2, t), hh);
+      ctx.stroke();
+    }
+
+    // 篮口
+    ctx.beginPath();
+    ctx.ellipse(0, 0, topW / 2, 8, 0, 0, TAU);
+    const rimG = ctx.createLinearGradient(-topW / 2, 0, topW / 2, 0);
+    rimG.addColorStop(0, '#d4924f');
+    rimG.addColorStop(0.5, '#c07f3d');
+    rimG.addColorStop(1, '#a2662c');
+    ctx.fillStyle = rimG;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 220, 170, 0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 高光
+    ctx.beginPath();
+    ctx.ellipse(-topW * 0.2, 0, topW * 0.16, 4, 0, 0, TAU);
+    ctx.fillStyle = 'rgba(255, 235, 200, 0.3)';
+    ctx.fill();
+
+    ctx.restore();
+
+    // 生命值
+    ctx.save();
+    ctx.translate(bx, by + 68);
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.arc((i - 1) * 16, 0, 4.5, 0, TAU);
+      ctx.fillStyle = i < G.lives ? 'rgba(255, 200, 120, 0.95)' : 'rgba(255,255,255,0.18)';
+      ctx.fill();
+    }
+    ctx.restore();
+  },
+};
+
+/* ============================================================
+   游戏二：吹叶入篮
+   ============================================================ */
+const BASKET = {
+  spawnTimer: 0,
+  leaves: [],
+
+  start() {
+    G.score = 0;
+    G.combo = 0;
+    this.spawnTimer = 0;
+    this.leaves = [];
+    G.hoop.r = clamp(W * 0.055, 46, 78);
+    G.hoop.x = W - G.hoop.r - 70;
+    G.hoop.y = G.hoop.r + 96;
+
+    for (let i = 0; i < 22; i++) {
+      const l = spawnLeaf({ x: rnd(60, W * 0.7), y: rnd(H * 0.25, H * 0.95) });
+      l.vy = rnd(0.15, 0.5);
+      l.vx = rnd(-0.1, 0.4);
+      l.scale = 1;
+      this.leaves.push(l);
+    }
+    G.items = this.leaves;   // 暴露给调试/测试
+  },
+
+  update(dt) {
+    const dtf = dt / 16.667;
+
+    // —— 鼠标风场：把落叶往指针运动方向推 ——
+    const _ptr = bridge.ptr;
+    const powerT = (bridge.state.power || 45) / 100;
+    const windR = lerp(90, 300, powerT);
+    if (_ptr.speed > 0.8) {
+      const force = clamp(_ptr.speed / 24, 0, 1.7) * lerp(0.5, 3.2, powerT * powerT);
+      const _R2 = windR * windR;
+      for (const p of this.leaves) {
+        const dx = p.x - _ptr.x, dy = p.y - _ptr.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 > _R2) continue;
+        const d = Math.sqrt(d2) || 0.001;
+        const t = 1 - d / windR;
+        const fall = t * t;
+        p.fx += (dx / d * 0.4 + _ptr.vx / 18 * 1.0) * fall * force * 11;
+        p.fy += (dy / d * 0.4 + _ptr.vy / 18 * 1.0) * fall * force * 11;
+      }
+    }
+
+    // 补充落叶
+    this.spawnTimer += dt;
+    if (this.spawnTimer > 420 && this.leaves.length < 26) {
+      this.spawnTimer = 0;
+      const l = spawnLeaf({ x: rnd(40, W * 0.6), y: rnd(-60, H * 0.3) });
+      l.vy = rnd(0.15, 0.5);
+      l.scale = 1;
+      this.leaves.push(l);
+    }
+
+    const hoop = G.hoop;
+    const R = hoop.r;
+
+    for (let i = this.leaves.length - 1; i >= 0; i--) {
+      const p = this.leaves[i];
+      if (p.scale < 1) p.scale = Math.min(1, p.scale + 0.08 * dtf);
+
+      p.ph += p.phSp * dtf;
+      p.ang += p.spin * dtf;
+      p.flip += p.flipSp * dtf;
+
+      // 环境漂移
+      const drift = Math.sin(p.ph) * 0.22;
+      p.x += (p.vx + drift + p.fx) * dtf;
+      p.y += (p.vy + p.fy) * dtf;
+
+      // 阻尼
+      p.fx *= 0.975; p.fy *= 0.975;
+
+      // 边界回弹（保持在场内，方便吹）
+      const m = 20;
+      if (p.x < m) { p.x = m; p.fx = Math.abs(p.fx) * 0.5; }
+      if (p.x > W - m) { p.x = W - m; p.fx = -Math.abs(p.fx) * 0.5; }
+      if (p.y < m) { p.y = m; p.fy = Math.abs(p.fy) * 0.5; }
+      if (p.y > H - m) { p.y = H - m; p.fy = -Math.abs(p.fy) * 0.5; }
+
+      // 进入篮圈判定
+      const dx = p.x - hoop.x, dy = p.y - hoop.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < R * 0.86) {
+        const base = p.special ? 30 : 10;
+        G.score += base;
+        G.combo++;
+        this.leaves.splice(i, 1);
+        floatText(hoop.x, hoop.y - R - 10, `+${base}`, p.special ? '#ffd86b' : '#a8e6a0', p.special ? 24 : 18);
+        sparks(hoop.x, hoop.y, p.special ? '#ffd86b' : '#a8e6a0', p.special ? 20 : 10);
+        hoop.pulse = 1;
+        bridge.beep(p.special ? 1040 : 720, 0.08, 0.08);
+        updateScoreUI();
+        showCombo(G.combo);
+        // 重置回中
+        const l = spawnLeaf({ x: rnd(60, W * 0.6), y: rnd(H * 0.2, H * 0.8) });
+        l.vy = rnd(0.15, 0.5);
+        l.scale = 1;
+        this.leaves.push(l);
+      }
+    }
+
+    if (hoop.pulse) hoop.pulse = Math.max(0, hoop.pulse - 0.045 * dtf);
+  },
+
+  drawWindAura() {
+    // 风力可视化
+    const p = bridge.ptr;
+    if (p.speed < 3) return;
+    const t = clamp(p.speed / 26, 0, 1);
+    const R = lerp(80, 240, bridge.state.power / 100);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 5; i++) {
+      const a = Math.atan2(p.vy, p.vx) + (i - 2) * 0.18;
+      const off = (performance.now() * 0.25 + i * 40) % 160;
+      const sx = p.x + Math.cos(a) * off;
+      const sy = p.y + Math.sin(a) * off;
+      ctx.globalAlpha = (1 - off / 160) * 0.18 * t;
+      ctx.strokeStyle = '#ffe0a8';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx - Math.cos(a) * 34, sy - Math.sin(a) * 34);
+      ctx.stroke();
+    }
+    ctx.restore();
+  },
+
+  draw() {
+    this.drawWindAura();
+
+    // 篮圈
+    const h = G.hoop;
+    const R = h.r * (1 + (h.pulse || 0) * 0.12);
+    ctx.save();
+    ctx.translate(h.x, h.y);
+
+    // 光晕
+    ctx.globalCompositeOperation = 'lighter';
+    const gg = ctx.createRadialGradient(0, 0, R * 0.2, 0, 0, R * 1.7);
+    gg.addColorStop(0, `rgba(255, 210, 120, ${0.14 + (h.pulse || 0) * 0.2})`);
+    gg.addColorStop(1, 'rgba(255, 210, 120, 0)');
+    ctx.fillStyle = gg;
+    ctx.beginPath();
+    ctx.arc(0, 0, R * 1.7, 0, TAU);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+
+    // 圈
+    ctx.beginPath();
+    ctx.arc(0, 0, R, 0, TAU);
+    ctx.strokeStyle = h.pulse ? 'rgba(255, 235, 170, 0.95)' : 'rgba(255, 220, 150, 0.62)';
+    ctx.lineWidth = 3 + (h.pulse || 0) * 3;
+    ctx.stroke();
+
+    // 内虚线
+    ctx.beginPath();
+    ctx.arc(0, 0, R * 0.86, 0, TAU);
+    ctx.setLineDash([5, 7]);
+    ctx.strokeStyle = 'rgba(255, 220, 150, 0.3)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 四角标记
+    ctx.strokeStyle = 'rgba(255, 235, 180, 0.75)';
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * TAU + Math.PI / 4;
+      const l = R * 1.12;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * l, Math.sin(a) * l);
+      ctx.lineTo(Math.cos(a) * (l + 12), Math.sin(a) * (l + 12));
+      ctx.stroke();
+    }
+
+    // 文字
+    ctx.font = '600 11px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillStyle = 'rgba(255, 228, 170, 0.7)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('篮 圈', 0, 0);
+
+    ctx.restore();
+  },
+
+  leavesRef() { return this.leaves; },
+};
+
+/* ============================================================
+   游戏三：点落叶连击
+   ============================================================ */
+const COMBO = {
+  spawnTimer: 0,
+
+  start() {
+    G.score = 0;
+    G.combo = 0;
+    G.comboWindow = 1200;
+    G.items = [];
+    this.spawnTimer = 0;
+    for (let i = 0; i < 8; i++) {
+      const l = spawnLeaf({ x: rnd(80, W - 80), y: rnd(80, H - 120) });
+      l.scale = 1;
+      l.vy = rnd(0.3, 1.0);
+      l.vx = rnd(-0.5, 0.5);
+      G.items.push(l);
+    }
+  },
+
+  update(dt) {
+    const dtf = dt / 16.667;
+
+    this.spawnTimer += dt;
+    const target = 12;
+    if (G.items.length < target && this.spawnTimer > 380) {
+      this.spawnTimer = 0;
+      const l = spawnLeaf({ x: rnd(80, W - 80), y: rnd(-60, H * 0.2) });
+      l.scale = 1;
+      l.vy = rnd(0.4, 1.1);
+      l.vx = rnd(-0.6, 0.6);
+      G.items.push(l);
+    }
+
+    // 连击计时
+    if (G.combo > 0) {
+      G.comboTimer -= dt;
+      if (G.comboTimer <= 0) {
+        G.combo = 0;
+        showCombo(0);
+        updateScoreUI();
+      } else {
+        // 进度条颜色的紧迫感
+        updateComboBar();
+      }
+    }
+
+    for (let i = G.items.length - 1; i >= 0; i--) {
+      const p = G.items[i];
+      if (p.scale < 1) p.scale = Math.min(1, p.scale + 0.1 * dtf);
+      p.ph += p.phSp * dtf;
+      p.ang += p.spin * dtf;
+      p.flip += p.flipSp * dtf;
+
+      // 游走 + 轻微追踪（增加难度）
+      p.x += (p.vx + Math.sin(p.ph) * 0.9 + p.fx) * dtf;
+      p.y += (p.vy + Math.cos(p.ph * 0.7) * 0.5 + p.fy) * dtf;
+      p.fx *= 0.94; p.fy *= 0.94;
+
+      // 边界回绕
+      if (p.x < 30) { p.x = 30; p.vx = Math.abs(p.vx); }
+      if (p.x > W - 30) { p.x = W - 30; p.vx = -Math.abs(p.vx); }
+      if (p.y > H + 50) { G.items.splice(i, 1); continue; }
+      if (p.y < -60) { p.y = -60; p.vy = Math.abs(p.vy); }
+
+      // 存活时间（防止一直留着）
+      p.life = (p.life == null ? 1 : p.life);
+      p.age = (p.age || 0) + dt;
+      if (p.age > 12000) {
+        G.items.splice(i, 1);
+      }
+    }
+  },
+
+  // 点击处理
+  onClick(x, y) {
+    // 从后往前找最上层的命中
+    let hitIdx = -1, hitP = null;
+    for (let i = G.items.length - 1; i >= 0; i--) {
+      const p = G.items[i];
+      const r = p.size * 1.15;
+      if (Math.hypot(p.x - x, p.y - y) < r) {
+        hitIdx = i;
+        hitP = p;
+        break;
+      }
+    }
+
+    if (hitIdx < 0) {
+      // 点空：连击清零
+      if (G.combo > 0) {
+        floatText(x, y, 'MISS', '#ff8a6e', 15);
+        bridge.beep(160, 0.1, 0.05, 'sawtooth');
+      }
+      G.combo = 0;
+      showCombo(0);
+      updateScoreUI();
+      return false;
+    }
+
+    G.items.splice(hitIdx, 1);
+    G.combo++;
+    G.comboTimer = G.comboWindow + (hitP.special ? 400 : 0);
+
+    const mult = 1 + Math.floor(G.combo / 5) * 0.5;
+    const base = hitP.special ? 5 : 1;
+    const gain = Math.round(base * mult);
+    G.score += gain;
+
+    floatText(hitP.x, hitP.y - 10,
+      hitP.special ? `金叶 +${gain}` : `+${gain}`,
+      hitP.special ? '#ffd86b' : '#ffe9c0',
+      hitP.special ? 21 : 15);
+    sparks(hitP.x, hitP.y, hitP.special ? '#ffd86b' : '#ffb347', hitP.special ? 16 : 8);
+
+    if (G.combo > 1 && G.combo % 5 === 0) {
+      floatText(hitP.x, hitP.y - 40, `${G.combo} 连击!`, '#ff9ec4', 22);
+    }
+
+    bridge.beep(520 + Math.min(G.combo, 20) * 26, 0.05, 0.055);
+    updateScoreUI();
+    showCombo(G.combo);
+    return true;
+  },
+
+  draw() {
+    // 连击进度环在指针处
+    if (G.combo > 0) {
+      const t = clamp(G.comboTimer / G.comboWindow, 0, 1);
+      const p = bridge.ptr;
+      if (p.x > -9000) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 26, -Math.PI / 2, -Math.PI / 2 + TAU * t);
+        ctx.strokeStyle = t > 0.35 ? 'rgba(255, 220, 140, 0.85)' : 'rgba(255, 130, 100, 0.9)';
+        ctx.lineWidth = 2.6;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  },
+};
+
+/* ============================================================
+   桥接：主引擎暴露的接口
+   ============================================================ */
+const bridge = {
+  get ptr() { return window.__ptr || { x: -9999, y: -9999, vx: 0, vy: 0, speed: 0 }; },
+  get state() { return window.__state || {}; },
+  beep(freq, dur, vol, type) {
+    if (window.__beep) window.__beep(freq, dur, vol, type);
+  },
+};
+
+/* ============================================================
+   UI 更新
+   ============================================================ */
+function updateScoreUI() {
+  ghScore.textContent = G.score;
+  if (G.mode === 'catch') {
+    ghGoal.textContent = `剩余生命 ${Math.max(0, G.lives)}`;
+  }
+}
+
+function showCombo(n) {
+  if (n >= 2) {
+    ghCombo.textContent = `${n} 连击`;
+    ghCombo.classList.add('show');
+    ghCombo.classList.remove('pop');
+    void ghCombo.offsetWidth;
+    ghCombo.classList.add('pop');
+  } else {
+    ghCombo.classList.remove('show');
+  }
+}
+
+function updateComboBar() {
+  // 连击剩余时间用一条细进度显示在分数下方
+  const t = clamp(G.comboTimer / G.comboWindow, 0, 1);
+  ghCombo.style.opacity = G.combo > 0 ? String(0.35 + t * 0.65) : '0';
+}
+
+function setTimerUI() {
+  const s = Math.max(0, G.timeLeft / 1000);
+  ghTimer.textContent = s.toFixed(1);
+  const t = clamp(G.timeLeft / G.duration, 0, 1);
+  ghBar.style.transform = `scaleX(${t})`;
+  ghBar.style.background = t < 0.2 ? '#ff8a6e' : '';
+  ghTimer.classList.toggle('urgent', s < 6 && G.phase === 'playing');
+}
+
+/* ============================================================
+   开始 / 结束
+   ============================================================ */
+let rafId = null;
+
+function openCard(mode, isOver) {
+  const g = GAMES[mode];
+  gcIcon.textContent = g.icon;
+  gcTitle.textContent = isOver ? '游戏结束' : g.name;
+
+  if (isOver) {
+    const best = bests[mode] || 0;
+    const isNew = G.score > best;
+    if (isNew) {
+      bests[mode] = G.score;
+      saveBest(bests);
+      refreshBestLabels();
+    }
+    gcDesc.innerHTML = '';
+    gcDesc.textContent = '';
+    gcRules.innerHTML = '';
+    gcBest.innerHTML = `本局 <strong>${G.score}</strong> 分` +
+      (isNew ? ' &nbsp;·&nbsp; 🎉 新纪录！' : ` &nbsp;·&nbsp; 最高 ${best}`);
+    gcStart.textContent = '再来一局';
+  } else {
+    gcDesc.textContent = g.desc;
+    gcRules.innerHTML = g.rules
+      .map(([k, v]) => `<div><b>${k}</b><span>${v}</span></div>`)
+      .join('');
+    const best = bests[mode];
+    gcBest.innerHTML = best ? `最高纪录 <strong>${best}</strong>` : '';
+    gcStart.textContent = '开始游戏';
+  }
+
+  gameCard.classList.add('show');
+}
+
+function closeCard() {
+  gameCard.classList.remove('show');
+}
+
+function startGame(mode) {
+  G.mode = mode;
+  G.phase = 'playing';
+  G.active = true;
+  G.duration = GAMES[mode].duration * 1000;
+  G.timeLeft = G.duration;
+  G.score = 0;
+  G.combo = 0;
+  G.comboTimer = 0;
+  G.particles = [];
+  G.shake = 0;
+  G.flash = 0;
+
+  ghName.textContent = GAMES[mode].name;
+  ghGoal.textContent = GAMES[mode].goal;
+  ghScore.textContent = '0';
+  ghCombo.classList.remove('show');
+  gameHud.classList.add('show');
+  document.body.classList.add('playing');
+  closeCard();
+
+  if (mode === 'catch') { CATCH.start(); updateScoreUI(); }
+  else if (mode === 'basket') BASKET.start();
+  else COMBO.start();
+
+  setTimerUI();
+  lastGameT = performance.now();
+  if (!rafId) rafId = requestAnimationFrame(gameLoop);
+}
+
+function endGame() {
+  G.phase = 'over';
+  G.active = false;
+  gameHud.classList.remove('show');
+  document.body.classList.remove('playing');
+  openCard(G.mode, true);
+  bridge.beep(440, 0.3, 0.09, 'sine');
+}
+
+function quitGame() {
+  G.phase = 'idle';
+  G.active = false;
+  G.mode = null;
+  G.items = [];
+  BASKET.leaves = [];
+  G.particles = [];
+  gameHud.classList.remove('show');
+  gameCard.classList.remove('show');
+  document.body.classList.remove('playing');
+  ghCombo.classList.remove('show');
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  window.__gameActive = false;
+}
+
+/* ============================================================
+   主循环
+   ============================================================ */
+let lastGameT = performance.now();
+
+function gameLoop(now) {
+  const dt = clamp(now - lastGameT, 6, 46);
+  lastGameT = now;
+
+  if (G.phase !== 'playing') {
+    // 结束后仍绘制残留，让画面不闪
+    if (G.phase === 'over') {
+      ctx.save();
+      if (G.mode === 'basket') {
+        for (const l of BASKET.leavesRef()) drawLeafItem(l);
+        BASKET.draw();
+      }
+      ctx.restore();
+      drawParticles();
+      updateParticles(dt);
+      requestAnimationFrame(gameLoop);
+      return;
+    }
+    rafId = null;
+    return;
+  }
+
+  // 倒计时
+  G.timeLeft -= dt;
+  setTimerUI();
+  if (G.timeLeft <= 0) {
+    G.timeLeft = 0;
+    setTimerUI();
+    endGame();
+    rafId = requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  // 更新
+  if (G.mode === 'catch') CATCH.update(dt);
+  else if (G.mode === 'basket') BASKET.update(dt);
+  else COMBO.update(dt);
+
+  updateParticles(dt);
+
+  // 震屏 / 闪白衰减
+  if (G.shake > 0) G.shake = Math.max(0, G.shake - 0.5 * dt / 16.667);
+  if (G.flash > 0) G.flash = Math.max(0, G.flash - 0.02 * dt / 16.667);
+
+  // —— 绘制（在主场景之上叠加）——
+  ctx.save();
+  if (G.shake > 0.1) {
+    ctx.translate(rnd(-G.shake, G.shake), rnd(-G.shake, G.shake));
+  }
+
+  if (G.mode === 'catch') {
+    for (const p of G.items) drawLeafItem(p);
+    CATCH.draw();
+  } else if (G.mode === 'basket') {
+    for (const l of BASKET.leavesRef()) drawLeafItem(l);
+    BASKET.draw();
+  } else {
+    for (const p of G.items) drawLeafItem(p);
+    COMBO.draw();
+  }
+
+  drawParticles();
+  ctx.restore();
+
+  // 漏接闪光
+  if (G.flash > 0) {
+    ctx.save();
+    ctx.globalAlpha = G.flash;
+    ctx.fillStyle = '#ff5544';
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
+  rafId = requestAnimationFrame(gameLoop);
+}
+
+/* ============================================================
+   事件绑定
+   ============================================================ */
+document.querySelectorAll('.game-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.game;
+    G.mode = mode;
+    G.phase = 'ready';
+    openCard(mode, false);
+  });
+});
+
+gcStart.addEventListener('click', () => {
+  if (G.mode) startGame(G.mode);
+});
+
+gcQuit.addEventListener('click', () => {
+  quitGame();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (gameCard.classList.contains('show')) {
+      if (G.phase === 'ready') quitGame();
+      else closeCard();
+    } else if (G.phase === 'playing') {
+      endGame();
+    }
+  }
+  // 游戏中空格 = 暂停/结束提示，避免误触主场景大招
+  if (e.key === ' ' && G.phase === 'playing') {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}, true);
+
+/* ---- 点击：游戏中由游戏接管 ---- */
+window.addEventListener('pointerdown', e => {
+  if (!G.active || G.phase !== 'playing') return;
+  if (e.target.closest('.panel, .panel-toggle, .stats, .game-card, .game-hud')) return;
+
+  if (G.mode === 'combo') {
+    e.stopPropagation();
+    e.preventDefault();
+    COMBO.onClick(e.clientX, e.clientY);
+  }
+}, true); // capture 阶段，优先于主场景的点击爆炸
+
+/* ---- 阻止游戏中主场景的点击爆炸 ---- */
+window.addEventListener('pointerdown', e => {
+  if (G.active && G.phase === 'playing') {
+    if (!e.target.closest('.panel, .panel-toggle, .stats, .game-card, .game-hud')) {
+      e.stopImmediatePropagation();
+    }
+  }
+}, false);
+
+/* ============================================================
+   最高分标签
+   ============================================================ */
+function refreshBestLabels() {
+  document.querySelectorAll('.g-best').forEach(el => {
+    const k = el.dataset.best;
+    el.textContent = bests[k] ? `最高 ${bests[k]}` : '—';
+  });
+}
+refreshBestLabels();
+
+/* 暴露供主引擎查询 */
+window.__GameModule = {
+  isActive() { return G.active && G.phase === 'playing'; },
+  getMode() { return G.mode; },
+  quit: quitGame,
+  syncSize,
+};
+window.__G = G;          // 调试/测试用
+
+})();
+
+</script>
+</body>
+</html>
